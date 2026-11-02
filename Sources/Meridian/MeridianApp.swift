@@ -11,24 +11,32 @@ struct MeridianApp: App {
     var body: some Scene {
         Window("Meridian", id: "main") {
             TimeGridView().frame(minWidth: 960, minHeight: 420)
-                .onAppear { if showWidget { DesktopWidget.shared.show() } }
-                .onChange(of: showWidget) { $1 ? DesktopWidget.shared.show() : DesktopWidget.shared.hide() }
-                .onChange(of: openAtLogin) { _, on in
-                    try? on ? SMAppService.mainApp.register() : SMAppService.mainApp.unregister()
-                    openAtLogin = SMAppService.mainApp.status == .enabled
-                }
         }
         .commands {
             CommandGroup(after: .appSettings) {
-                Toggle("Desktop Widget", isOn: $showWidget).keyboardShortcut("d")
-                Toggle("Open at Login", isOn: $openAtLogin)
+                Toggle("Desktop Widget", isOn: Binding(get: { showWidget }, set: { showWidget = $0; DesktopWidget.shared.setVisible($0) }))
+                    .keyboardShortcut("d")
+                Toggle("Open at Login", isOn: Binding(get: { openAtLogin }, set: setOpenAtLogin))
             }
         }
     }
+
+    /// An ad hoc signed app may need approving in System Settings › Login Items, so open it there when asked.
+    private func setOpenAtLogin(_ on: Bool) {
+        let service = SMAppService.mainApp
+        try? on ? service.register() : service.unregister()
+        if on && service.status == .requiresApproval { SMAppService.openSystemSettingsLoginItems() }
+        openAtLogin = service.status == .enabled
+    }
 }
 
-/// Closing the window keeps the app running so the desktop widget stays up.
+/// Shows the widget at launch, and keeps the app running when the window closes so the widget stays up.
+@MainActor
 final class AppDelegate: NSObject, NSApplicationDelegate {
+    func applicationDidFinishLaunching(_ notification: Notification) {
+        if UserDefaults.standard.object(forKey: "showWidget") as? Bool ?? true { DesktopWidget.shared.setVisible(true) }
+    }
+
     func applicationShouldTerminateAfterLastWindowClosed(_ sender: NSApplication) -> Bool { false }
 }
 
@@ -41,6 +49,7 @@ struct TimeGridView: View {
     @State private var dayOffset = 0
     @State private var hovered: Int?
     @State private var drag: (from: Int, to: Int)?
+    @State private var lastClick: Int?
     @State private var adding = false
 
     private var cities: [City] { stored.split(separator: "\n").compactMap { City(id: String($0)) } }
@@ -122,7 +131,7 @@ struct TimeGridView: View {
 
     private func clock(_ date: Date, _ zone: TimeZone) -> String {
         let style = Date.FormatStyle(locale: Locale(identifier: twelveHour ? "en_US" : "en_GB"), timeZone: zone)
-        return date.formatted(twelveHour ? style.hour(.defaultDigits(amPM: .abbreviated)).minute() : style.hour(.twoDigits(amPM: .omitted)).minute())
+        return date.formatted(twelveHour ? style.hour(.defaultDigits(amPM: .abbreviated)).minute() : style.hour(.twoDigits(amPM: .omitted)).minute(.twoDigits))
     }
 
     private func timeline(cities: [City], columns: [Date], now: Int?, range: ClosedRange<Int>?) -> some View {
@@ -145,10 +154,16 @@ struct TimeGridView: View {
                         .position(x: x + width * CGFloat(range.count) / 2, y: -10)
                 }
                 Color.clear.contentShape(.rect)
-                    .gesture(DragGesture(minimumDistance: 0).onChanged { value in
-                        let column = { (x: CGFloat) in min(max(Int(x / width), 0), columns.count - 1) }
-                        drag = (column(value.startLocation.x), column(value.location.x))
-                    })
+                    .gesture(DragGesture(minimumDistance: 0)
+                        .onChanged { value in
+                            let column = { (x: CGFloat) in min(max(Int(x / width), 0), columns.count - 1) }
+                            drag = (column(value.startLocation.x), column(value.location.x))
+                        }
+                        // Clicking the single selected hour again clears the selection.
+                        .onEnded { _ in
+                            if let drag, drag.from == drag.to, drag.from == lastClick { self.drag = nil; lastClick = nil }
+                            else { lastClick = drag.flatMap { $0.from == $0.to ? $0.from : nil } }
+                        })
                     .onContinuousHover { phase in
                         if case .active(let point) = phase { hovered = min(max(Int(point.x / width), 0), columns.count - 1) } else { hovered = nil }
                     }

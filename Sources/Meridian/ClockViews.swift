@@ -1,15 +1,20 @@
 import SwiftUI
 
 /// Digital clocks for up to five cities, one per row, each with the next 12 hours as a colour-banded strip.
+/// Days and offsets are relative to the first city, the home zone, as in the main window.
 struct WorldClockView: View {
     let date: Date
     let cities: [City]
+    let twelveHour: Bool
 
     var body: some View {
-        let columns = TimeGrid.hourly(from: date, count: 12)
+        let home = cities.first?.timeZone ?? .autoupdatingCurrent
+        let columns = TimeGrid.hourly(from: date, count: 12, home: home)
+        let locale = Locale(identifier: twelveHour ? "en_US" : "en_GB")
         VStack(spacing: 4) {
             ForEach(cities) { city in
-                ClockRow(time: CityTime(city: city, date: date), cells: TimeGrid.cells(in: city.timeZone, columns: columns))
+                ClockRow(time: CityTime(city: city, date: date, localZone: home, locale: locale),
+                         cells: TimeGrid.cells(in: city.timeZone, columns: columns), twelveHour: twelveHour)
             }
         }
     }
@@ -18,6 +23,7 @@ struct WorldClockView: View {
 struct ClockRow: View {
     let time: CityTime
     let cells: [HourCell]
+    let twelveHour: Bool
 
     var body: some View {
         HStack(spacing: 8) {
@@ -33,7 +39,7 @@ struct ClockRow: View {
             .monospacedDigit()
             .lineLimit(1)
             .frame(width: 70, alignment: .leading)
-            HourStrip(cells: cells)
+            HourStrip(cells: cells, twelveHour: twelveHour)
         }
         .frame(height: 40)
         .padding(.horizontal, 6)
@@ -44,7 +50,7 @@ struct ClockRow: View {
 /// Hour labels coloured by band; a new local day is marked by a bright edge.
 struct HourStrip: View {
     let cells: [HourCell]
-    private let twelveHour = CityTime.uses12Hour(.autoupdatingCurrent)
+    let twelveHour: Bool
 
     var body: some View {
         HStack(spacing: 1) {

@@ -42,18 +42,24 @@ struct HourCell: Identifiable {
 }
 
 enum TimeGrid {
-    /// Hourly columns starting at the first instant of the home zone's day containing `date`, shifted by `days`.
+    /// Hourly columns from 00:00 to 00:00 in the home zone on the day containing `date`, shifted by `days`.
+    /// Daylight saving days have 23 or 25 columns.
     static func dayColumns(home: TimeZone, date: Date, days: Int = 0) -> [Date] {
-        var calendar = Calendar(identifier: .gregorian)
-        calendar.timeZone = home
-        let day = calendar.date(byAdding: .day, value: days, to: date)!
-        return hourly(from: calendar.startOfDay(for: day), count: 24)
+        let calendar = calendar(home)
+        let start = calendar.startOfDay(for: calendar.date(byAdding: .day, value: days, to: date)!)
+        return Array(stride(from: start, to: calendar.date(byAdding: .day, value: 1, to: start)!, by: 3600))
     }
 
-    /// `count` hourly columns starting at the hour containing `date`.
-    static func hourly(from date: Date, count: Int) -> [Date] {
-        let start = Date(timeIntervalSinceReferenceDate: (date.timeIntervalSinceReferenceDate / 3600).rounded(.down) * 3600)
+    /// `count` hourly columns starting at the home zone's hour containing `date`.
+    static func hourly(from date: Date, count: Int, home: TimeZone) -> [Date] {
+        let start = calendar(home).dateInterval(of: .hour, for: date)!.start
         return (0..<count).map { start + Double($0 * 3600) }
+    }
+
+    private static func calendar(_ zone: TimeZone) -> Calendar {
+        var calendar = Calendar(identifier: .gregorian)
+        calendar.timeZone = zone
+        return calendar
     }
 
     static func cells(in zone: TimeZone, columns: [Date]) -> [HourCell] {

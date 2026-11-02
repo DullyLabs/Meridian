@@ -3,6 +3,13 @@ BIN_DIR = $(shell swift build -c release --show-bin-path)
 # Signs with your first code-signing identity, or ad hoc if you have none. Pick one with `make SIGN_ID="<name or hash>"`.
 SIGN_ID ?= $(or $(shell security find-identity -v -p codesigning | awk -F'"' 'NR==1 && NF>1 {print $$2}'),-)
 
+# Command Line Tools 27 lack SwiftUI's macro plugin, so build against their newest macOS 26 SDK and point tests at their Swift Testing plugin.
+CLT := /Library/Developer/CommandLineTools
+ifeq ($(shell xcode-select -p),$(CLT))
+export SDKROOT := $(lastword $(sort $(wildcard $(CLT)/SDKs/MacOSX26.*.sdk)))
+TEST_FLAGS := -Xswiftc -plugin-path -Xswiftc $(CLT)/usr/lib/swift/host/plugins/testing
+endif
+
 .PHONY: all build app test install icon clean
 
 all: app
@@ -19,7 +26,7 @@ app: build
 	codesign --force --options runtime --sign "$(SIGN_ID)" $(APP)
 
 test:
-	swift test
+	swift test $(TEST_FLAGS)
 
 # ~/Applications needs no admin rights.
 install: app
