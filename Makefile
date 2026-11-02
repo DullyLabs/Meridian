@@ -6,7 +6,10 @@ SIGN_ID ?= $(or $(shell security find-identity -v -p codesigning | awk -F'"' 'NR
 # Command Line Tools 27 lack SwiftUI's macro plugin, so build against their newest macOS 26 SDK and point tests at their Swift Testing plugin.
 CLT := /Library/Developer/CommandLineTools
 ifeq ($(shell xcode-select -p),$(CLT))
-export SDKROOT := $(lastword $(sort $(wildcard $(CLT)/SDKs/MacOSX26.*.sdk)))
+SDK := $(shell ls -d $(CLT)/SDKs/MacOSX26.*.sdk 2>/dev/null | sort -V | tail -1)
+ifneq ($(SDK),)
+export SDKROOT := $(SDK)
+endif
 TEST_FLAGS := -Xswiftc -plugin-path -Xswiftc $(CLT)/usr/lib/swift/host/plugins/testing
 endif
 

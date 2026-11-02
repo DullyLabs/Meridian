@@ -6,11 +6,12 @@ import SwiftUI
 struct MeridianApp: App {
     @NSApplicationDelegateAdaptor private var delegate: AppDelegate
     @AppStorage("showWidget") private var showWidget = true
-    @State private var openAtLogin = SMAppService.mainApp.status == .enabled
+    @State private var openAtLogin = Self.loginItemOn
 
     var body: some Scene {
         Window("Meridian", id: "main") {
             TimeGridView().frame(minWidth: 960, minHeight: 420)
+                .onReceive(NotificationCenter.default.publisher(for: NSApplication.didBecomeActiveNotification)) { _ in openAtLogin = Self.loginItemOn }
         }
         .commands {
             CommandGroup(after: .appSettings) {
@@ -21,12 +22,15 @@ struct MeridianApp: App {
         }
     }
 
+    /// Registered counts as on even while it waits for approval, so the toggle can still turn it off.
+    private static var loginItemOn: Bool { [.enabled, .requiresApproval].contains(SMAppService.mainApp.status) }
+
     /// An ad hoc signed app may need approving in System Settings › Login Items, so open it there when asked.
     private func setOpenAtLogin(_ on: Bool) {
         let service = SMAppService.mainApp
         try? on ? service.register() : service.unregister()
         if on && service.status == .requiresApproval { SMAppService.openSystemSettingsLoginItems() }
-        openAtLogin = service.status == .enabled
+        openAtLogin = Self.loginItemOn
     }
 }
 
@@ -46,6 +50,7 @@ struct TimeGridView: View {
 
     @AppStorage("cities") private var stored = City.defaults.map(\.id).joined(separator: "\n")
     @AppStorage("twelveHour") private var twelveHour = CityTime.uses12Hour(.autoupdatingCurrent)
+    @Environment(\.openWindow) private var openWindow
     @State private var dayOffset = 0
     @State private var hovered: Int?
     @State private var drag: (from: Int, to: Int)?
@@ -60,7 +65,9 @@ struct TimeGridView: View {
             let cities = cities
             let columns = TimeGrid.dayColumns(home: cities.first?.timeZone ?? .current, date: context.date, days: dayOffset)
             let now = columns.firstIndex { $0 <= context.date && context.date < $0 + 3600 }
-            let range = drag.map { min($0.from, $0.to)...max($0.from, $0.to) } ?? (hovered ?? now).map { $0...$0 }
+            // Clamped, since a selection made on a longer day can outlast it (daylight saving days have 23 or 25 columns).
+            let range = (drag.map { min($0.from, $0.to)...max($0.from, $0.to) } ?? (hovered ?? now).map { $0...$0 })?
+                .clamped(to: 0...(columns.count - 1))
             VStack(spacing: 10) {
                 toolbar(cities: cities, columns: columns)
                 HStack(alignment: .bottom, spacing: 12) {
@@ -76,6 +83,7 @@ struct TimeGridView: View {
             }
             .padding(16)
         }
+        .onAppear { DesktopWidget.shared.openMainWindow = { openWindow(id: "main") } }
     }
 
     private func toolbar(cities: [City], columns: [Date]) -> some View {
@@ -98,22 +106,23 @@ struct TimeGridView: View {
     private func info(index: Int, city: City, cities: [City], columns: [Date], range: ClosedRange<Int>?) -> some View {
         let zone = city.timeZone
         let home = cities[0].timeZone
-        let offset = Double(zone.secondsFromGMT(for: columns[0]) - home.secondsFromGMT(for: columns[0])) / 3600
+        let offset = zone.secondsFromGMT(for: columns[0]) - home.secondsFromGMT(for: columns[0])
         return HStack(spacing: 8) {
             Group {
-                if index == 0 { Image(systemName: "house.fill") } else { Text(offset.formatted(.number.sign(strategy: .always(includingZero: false)))) }
+                if index == 0 { Image(systemName: "house.fill") } else { Text(TimeGrid.offset(offset) ?? "0") }
             }
-            .frame(width: 40).foregroundStyle(.secondary)
+            .frame(width: 56).foregroundStyle(.secondary).lineLimit(1)
             VStack(alignment: .leading, spacing: 1) {
                 Text(city.displayName).font(.headline).lineLimit(1)
-                Text(TimeGrid.utcOffset(zone, at: columns[0])).font(.caption).foregroundStyle(.secondary)
+                if city.zone != "UTC" { Text(TimeGrid.utcOffset(zone, at: columns[0])).font(.caption).foregroundStyle(.secondary) }
             }
             .frame(width: 130, alignment: .leading)
             if let range {
                 let start = columns[range.lowerBound], end = columns[range.upperBound] + 3600
                 VStack(alignment: .leading, spacing: 1) {
                     Text("\(clock(start, zone)) - \(clock(end, zone))").font(.system(size: 15, weight: .semibold).monospacedDigit())
-                    Text(Set([start, end - 1]).sorted().map { $0.formatted(Date.FormatStyle(timeZone: zone).weekday(.abbreviated).month(.abbreviated).day()) }.joined(separator: "   "))
+                    let days = [start, end - 1].map { $0.formatted(Date.FormatStyle(timeZone: zone).weekday(.abbreviated).month(.abbreviated).day()) }
+                    Text(days[0] == days[1] ? days[0] : days.joined(separator: " \u{2192} "))
                         .font(.caption).foregroundStyle(.secondary)
                 }
                 .lineLimit(1).minimumScaleFactor(0.7)
@@ -138,7 +147,10 @@ struct TimeGridView: View {
         VStack(spacing: 4) {
             ForEach(cities) { city in
                 HStack(spacing: 1) {
-                    ForEach(TimeGrid.cells(in: city.timeZone, columns: columns)) { tile($0, isNow: $0.date == now.map { columns[$0] }) }
+                    let cells = TimeGrid.cells(in: city.timeZone, columns: columns)
+                    ForEach(Array(cells.enumerated()), id: \.element.id) { index, cell in
+                        HourCellView(cell: cell, previous: index > 0 ? cells[index - 1] : nil, isNow: index == now, twelveHour: twelveHour, large: true)
+                    }
                 }
                 .frame(height: Self.rowHeight)
             }
@@ -150,8 +162,9 @@ struct TimeGridView: View {
                     let x = width * CGFloat(range.lowerBound)
                     RoundedRectangle(cornerRadius: 4).strokeBorder(.green, lineWidth: 3)
                         .frame(width: width * CGFloat(range.count)).offset(x: x)
-                    Text("\u{2190} \(range.count) hour\(range.count == 1 ? "" : "s") \u{2192}").font(.caption.bold()).foregroundStyle(.green)
-                        .position(x: x + width * CGFloat(range.count) / 2, y: -10)
+                    Text("\(range.count) hour\(range.count == 1 ? "" : "s")").font(.caption2.bold()).foregroundStyle(.white)
+                        .padding(.horizontal, 6).padding(.vertical, 1).background(.green, in: .capsule).fixedSize()
+                        .position(x: x + width * CGFloat(range.count) / 2, y: 0)
                 }
                 Color.clear.contentShape(.rect)
                     .gesture(DragGesture(minimumDistance: 0)
@@ -170,20 +183,6 @@ struct TimeGridView: View {
             }
         }
         .frame(maxWidth: .infinity)
-    }
-
-    private func tile(_ cell: HourCell, isNow: Bool) -> some View {
-        VStack(spacing: 0) {
-            Text(cell.newDay ? cell.weekday : " ").font(.system(size: 8, weight: .bold))
-            Text(cell.newDay ? cell.dateTag : cell.label(twelveHour: twelveHour))
-                .font(.system(size: cell.newDay ? 11 : 16, weight: .semibold).monospacedDigit())
-            Text(cell.minute == 0 ? " " : String(format: "%02d", cell.minute)).font(.system(size: 8))
-        }
-        .foregroundStyle(cell.band == .work ? Color.black : .white)
-        .minimumScaleFactor(0.5).lineLimit(1)
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .background(cell.band.color, in: .rect(cornerRadius: 3))
-        .overlay { if isNow { RoundedRectangle(cornerRadius: 3).strokeBorder(.orange, lineWidth: 2) } }
     }
 
     private func move(_ index: Int, by step: Int, in cities: [City]) {

@@ -24,7 +24,7 @@ struct CityTime {
         let days = localCalendar.dateComponents(
             [.day], from: localCalendar.startOfDay(for: date), to: localCalendar.startOfDay(for: date + Double(offset))
         ).day ?? 0
-        dayLabel = [Self.dayName(days), Self.offsetName(offset)].compactMap { $0 }.joined(separator: " · ")
+        dayLabel = [Self.dayName(days), TimeGrid.offset(offset)].compactMap { $0 }.joined(separator: " · ")
     }
 
     static func uses12Hour(_ locale: Locale) -> Bool {
@@ -39,11 +39,4 @@ struct CityTime {
         }
     }
 
-    /// +3h, −5h30, or nil when the city shares the local time.
-    private static func offsetName(_ seconds: Int) -> String? {
-        guard seconds != 0 else { return nil }
-        let sign = seconds > 0 ? "+" : "\u{2212}"
-        let minutes = abs(seconds) / 60
-        return minutes % 60 == 0 ? "\(sign)\(minutes / 60)h" : "\(sign)\(minutes / 60)h\(String(format: "%02d", minutes % 60))"
-    }
 }
