@@ -120,6 +120,7 @@ struct CityTimeTests {
         let columns = TimeGrid.dayColumns(home: colombo, date: ISO8601DateFormatter().date(from: "2026-11-05T12:00:00Z")!)
         // 2026-11-05T12:00Z is 17:30 Colombo: halfway through column 17.
         #expect(TimeGrid.position(of: ISO8601DateFormatter().date(from: "2026-11-05T12:00:00Z")!, in: columns) == 17.5)
+        #expect(TimeGrid.fraction(17.5, in: 17) == 0.5 && TimeGrid.fraction(17.5, in: 16) == nil && TimeGrid.fraction(nil, in: 17) == nil)
         #expect(TimeGrid.position(of: columns[0] - 1, in: columns) == nil)
         #expect(TimeGrid.position(of: columns[23] + 3600, in: columns) == nil)
     }

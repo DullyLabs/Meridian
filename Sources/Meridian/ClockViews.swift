@@ -59,40 +59,24 @@ struct HourStrip: View {
     var body: some View {
         HStack(spacing: HourCellView.gap) {
             ForEach(Array(cells.enumerated()), id: \.element.id) { index, cell in
-                HourCellView(cell: cell, previous: index > 0 ? cells[index - 1] : nil, isNow: index == now.map { Int($0) }, twelveHour: twelveHour, large: false)
+                HourCellView(cell: cell, previous: index > 0 ? cells[index - 1] : nil, now: TimeGrid.fraction(now, in: index), twelveHour: twelveHour, large: false)
             }
         }
-        .overlay { NowLine(position: now, columns: cells.count) }
         .frame(height: 32)
     }
 }
 
-/// A blue line at the current time, `position` columns from the left edge.
-struct NowLine: View {
-    let position: Double?
-    let columns: Int
-
-    var body: some View {
-        GeometryReader { proxy in
-            if let position {
-                // A dark halo keeps it visible on the yellow cells.
-                Rectangle().fill(Color.now).frame(width: 2).padding(.horizontal, 1).background(.black.opacity(0.6))
-                    .offset(x: proxy.size.width * position / Double(columns) - 2)
-            }
-        }
-        .allowsHitTesting(false)
-    }
-}
-
 /// An hour coloured by the sun at that place and time, with the minutes for zones off the hour. A line in the gap before it
-/// marks a new local day (solid) or a daylight saving jump (dashed). The current hour reports its bounds so `nowColumn()`
-/// can outline that column across every row, and the main grid adds the weekday on a new day.
+/// marks a new local day (solid) or a daylight saving jump (dashed). The current hour draws a line at the current minute
+/// in its text colour, so it contrasts with the cell, and reports its bounds so `nowColumn()` can outline that column
+/// across every row. The main grid adds the weekday on a new day.
 struct HourCellView: View {
     static let gap: CGFloat = 2
 
     let cell: HourCell
     let previous: HourCell?
-    let isNow: Bool
+    /// How far through this hour the current time is, 0 to 1, when this is the current hour.
+    let now: Double?
     let twelveHour: Bool
     let large: Bool
 
@@ -117,7 +101,14 @@ struct HourCellView: View {
                     .offset(x: -(Self.gap + 1.5) / 2)
             }
         }
-        .anchorPreference(key: NowCells.self, value: .bounds) { isNow ? [$0] : [] }
+        .overlay(alignment: .leading) {
+            if let now {
+                GeometryReader { proxy in
+                    Rectangle().fill(ink).frame(width: 2).offset(x: proxy.size.width * now - 1)
+                }
+            }
+        }
+        .anchorPreference(key: NowCells.self, value: .bounds) { now == nil ? [] : [$0] }
         .help(cell.date.formatted(Date.FormatStyle(timeZone: cell.zone).weekday(.wide).month(.abbreviated).day().hour().minute()))
     }
 }

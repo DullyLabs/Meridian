@@ -155,7 +155,7 @@ struct TimeGridView: View {
                 HStack(spacing: HourCellView.gap) {
                     let cells = TimeGrid.cells(in: city.timeZone, columns: columns, at: city.coordinate)
                     ForEach(Array(cells.enumerated()), id: \.element.id) { index, cell in
-                        HourCellView(cell: cell, previous: index > 0 ? cells[index - 1] : nil, isNow: index == now.map { Int($0) }, twelveHour: twelveHour, large: true)
+                        HourCellView(cell: cell, previous: index > 0 ? cells[index - 1] : nil, now: TimeGrid.fraction(now, in: index), twelveHour: twelveHour, large: true)
                     }
                 }
                 .frame(height: Self.rowHeight)
@@ -193,7 +193,6 @@ struct TimeGridView: View {
             }
         }
         .nowColumn()
-        .overlay { NowLine(position: now, columns: columns.count) }
         .overlay {
             // The selection's length, above the now line so the line never runs through it.
             GeometryReader { proxy in

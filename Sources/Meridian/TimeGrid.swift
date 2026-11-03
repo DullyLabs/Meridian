@@ -70,6 +70,12 @@ enum TimeGrid {
 
     private static func locale(_ twelveHour: Bool) -> Locale { Locale(identifier: twelveHour ? "en_US" : "en_GB") }
 
+    /// How far through `column` the fractional `position` is, or nil when it's in another column.
+    static func fraction(_ position: Double?, in column: Int) -> Double? {
+        guard let position, Int(position) == column else { return nil }
+        return position - Double(column)
+    }
+
     /// Where `date` falls as a fractional column index, e.g. 9.25 a quarter of the way through column 9.
     static func position(of date: Date, in columns: [Date]) -> Double? {
         guard let index = columns.lastIndex(where: { $0 <= date }), date < columns[index] + 3600 else { return nil }
