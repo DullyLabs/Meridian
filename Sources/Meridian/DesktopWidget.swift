@@ -9,8 +9,24 @@ final class DesktopWidget {
     var openMainWindow: (() -> Void)?
     private var panel: NSPanel?
 
+    /// SwiftUI keeps the window's view alive after it closes, so follow the window through AppKit instead. A window
+    /// still counts as visible while it closes, so check again once it has.
+    private init() {
+        let center = NotificationCenter.default
+        for name in [NSWindow.didBecomeMainNotification, NSWindow.willCloseNotification] {
+            center.addObserver(forName: name, object: nil, queue: .main) { _ in Task { @MainActor in DesktopWidget.shared.updateDockIcon() } }
+        }
+    }
+
     func setVisible(_ visible: Bool) {
         visible ? show() : panel?.orderOut(nil)
+        updateDockIcon()
+    }
+
+    /// The Dock icon shows while the window is open or minimized, or while the widget is hidden so the app can still be found.
+    func updateDockIcon() {
+        let windowOpen = NSApp.windows.contains { $0.styleMask.contains(.titled) && ($0.isVisible || $0.isMiniaturized) }
+        NSApp.setActivationPolicy(windowOpen || panel?.isVisible != true ? .regular : .accessory)
     }
 
     private func show() {
@@ -32,8 +48,9 @@ final class DesktopWidget {
     }
 
     @objc func openMeridian() {
-        NSApp.activate(ignoringOtherApps: true)
+        NSApp.setActivationPolicy(.regular)
         openMainWindow?()
+        NSApp.activate(ignoringOtherApps: true)
     }
 
     @objc func hide() {

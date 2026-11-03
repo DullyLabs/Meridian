@@ -83,7 +83,10 @@ struct TimeGridView: View {
             }
             .padding(16)
         }
-        .onAppear { DesktopWidget.shared.openMainWindow = { openWindow(id: "main") } }
+        .onAppear {
+            DesktopWidget.shared.openMainWindow = { openWindow(id: "main") }
+            DesktopWidget.shared.updateDockIcon()
+        }
     }
 
     private func toolbar(cities: [City], columns: [Date]) -> some View {
@@ -138,9 +141,11 @@ struct TimeGridView: View {
         .frame(height: Self.rowHeight)
     }
 
-    private func clock(_ date: Date, _ zone: TimeZone) -> String {
-        let style = Date.FormatStyle(locale: Locale(identifier: twelveHour ? "en_US" : "en_GB"), timeZone: zone)
-        return date.formatted(twelveHour ? style.hour(.defaultDigits(amPM: .abbreviated)).minute() : style.hour(.twoDigits(amPM: .omitted)).minute(.twoDigits))
+    private func clock(_ date: Date, _ zone: TimeZone) -> String { TimeGrid.clock(date, zone, twelveHour: twelveHour) }
+
+    private func copy(_ cities: [City], start: Date, end: Date?) {
+        NSPasteboard.general.clearContents()
+        NSPasteboard.general.setString(TimeGrid.summary(cities, start: start, end: end, twelveHour: twelveHour), forType: .string)
     }
 
     private func timeline(cities: [City], columns: [Date], now: Int?, range: ClosedRange<Int>?) -> some View {
@@ -179,6 +184,13 @@ struct TimeGridView: View {
                         })
                     .onContinuousHover { phase in
                         if case .active(let point) = phase { hovered = min(max(Int(point.x / width), 0), columns.count - 1) } else { hovered = nil }
+                    }
+                    .contextMenu {
+                        if let range {
+                            let start = columns[range.lowerBound], end = columns[range.upperBound] + 3600
+                            Button("Copy Start Time") { copy(cities, start: start, end: nil) }
+                            Button("Copy Start and End Times") { copy(cities, start: start, end: end) }
+                        }
                     }
             }
         }

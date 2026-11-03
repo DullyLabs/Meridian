@@ -65,6 +65,30 @@ enum TimeGrid {
         }
     }
 
+    /// "9:00 AM" or "09:00".
+    static func clock(_ date: Date, _ zone: TimeZone, twelveHour: Bool) -> String {
+        let style = Date.FormatStyle(locale: locale(twelveHour), timeZone: zone)
+        return date.formatted(twelveHour ? style.hour(.defaultDigits(amPM: .abbreviated)).minute() : style.hour(.twoDigits(amPM: .omitted)).minute(.twoDigits))
+    }
+
+    /// One line per city for pasting into an invite: "London: Mon, Nov 3, 9:00 AM", plus " - 10:00 AM" when given an
+    /// end, with the end's day too when it falls on another day. Plain spaces, since some apps mangle the narrow one before AM.
+    static func summary(_ cities: [City], start: Date, end: Date?, twelveHour: Bool) -> String {
+        cities.map { city in
+            let zone = city.timeZone
+            let day = { (date: Date) in date.formatted(Date.FormatStyle(locale: locale(twelveHour), timeZone: zone).weekday(.abbreviated).month(.abbreviated).day()) }
+            var line = "\(city.displayName): \(day(start)), \(clock(start, zone, twelveHour: twelveHour))"
+            if let end {
+                line += " - " + (day(end - 1) == day(start) ? "" : "\(day(end)), ") + clock(end, zone, twelveHour: twelveHour)
+            }
+            return line
+        }
+        .joined(separator: "\n")
+        .replacingOccurrences(of: "\u{202F}", with: " ")
+    }
+
+    private static func locale(_ twelveHour: Bool) -> Locale { Locale(identifier: twelveHour ? "en_US" : "en_GB") }
+
     /// "UTC+5:30", "UTC-8" or "UTC".
     static func utcOffset(_ zone: TimeZone, at date: Date) -> String {
         "UTC" + (offset(zone.secondsFromGMT(for: date)) ?? "")
