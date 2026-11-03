@@ -2,8 +2,9 @@ import Foundation
 import SwiftUI
 
 extension Color {
-    /// The one accent: the current hour and time. Blue complements the warm sky ramp, so it stands out on every cell.
-    static let now = Color(red: 0.20, green: 0.52, blue: 1.0)
+    /// The one accent: the current hour and time. Deep cyan, the warm ramp's complement darkened to reach 3:1 contrast on
+    /// the yellow cells, the black cells and the light panel.
+    static let now = Color(red: 0.0, green: 0.50, blue: 0.70)
 }
 
 struct Coordinate: Equatable {
