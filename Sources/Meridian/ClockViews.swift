@@ -18,6 +18,7 @@ struct WorldClockView: View {
                          cells: TimeGrid.cells(in: city.timeZone, columns: columns, at: city.coordinate), now: now, twelveHour: twelveHour)
             }
         }
+        .nowColumn()
     }
 }
 
@@ -84,8 +85,8 @@ struct NowLine: View {
 }
 
 /// An hour coloured by the sun at that place and time, with the minutes for zones off the hour. A line in the gap before it
-/// marks a new local day (solid) or a daylight saving jump (dashed). A blue outline marks the current hour, and the main
-/// grid adds the weekday on a new day.
+/// marks a new local day (solid) or a daylight saving jump (dashed). The current hour reports its bounds so `nowColumn()`
+/// can outline that column across every row, and the main grid adds the weekday on a new day.
 struct HourCellView: View {
     static let gap: CGFloat = 2
 
@@ -116,12 +117,7 @@ struct HourCellView: View {
                     .offset(x: -(Self.gap + 1.5) / 2)
             }
         }
-        .overlay {
-            if isNow {
-                RoundedRectangle(cornerRadius: 3).strokeBorder(.black.opacity(0.6), lineWidth: 4)
-                    .overlay { RoundedRectangle(cornerRadius: 3).strokeBorder(Color.now, lineWidth: 2) }
-            }
-        }
+        .anchorPreference(key: NowCells.self, value: .bounds) { isNow ? [$0] : [] }
         .help(cell.date.formatted(Date.FormatStyle(timeZone: cell.zone).weekday(.wide).month(.abbreviated).day().hour().minute()))
     }
 }
@@ -130,5 +126,27 @@ struct HourCellView: View {
 private struct Line: Shape {
     func path(in rect: CGRect) -> Path {
         Path { $0.move(to: CGPoint(x: rect.midX, y: rect.minY)); $0.addLine(to: CGPoint(x: rect.midX, y: rect.maxY)) }
+    }
+}
+
+/// The bounds of each row's current-hour cell.
+struct NowCells: PreferenceKey {
+    static let defaultValue: [Anchor<CGRect>] = []
+    static func reduce(value: inout [Anchor<CGRect>], nextValue: () -> [Anchor<CGRect>]) { value += nextValue() }
+}
+
+extension View {
+    /// One blue outline around the current hour's cells in every row.
+    func nowColumn() -> some View {
+        overlayPreferenceValue(NowCells.self) { anchors in
+            GeometryReader { proxy in
+                if let first = anchors.first {
+                    let box = anchors.dropFirst().reduce(proxy[first]) { $0.union(proxy[$1]) }.insetBy(dx: -2, dy: -2)
+                    RoundedRectangle(cornerRadius: 5).strokeBorder(Color.now, lineWidth: 2.5)
+                        .frame(width: box.width, height: box.height).offset(x: box.minX, y: box.minY)
+                }
+            }
+            .allowsHitTesting(false)
+        }
     }
 }

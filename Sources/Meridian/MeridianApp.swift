@@ -192,6 +192,7 @@ struct TimeGridView: View {
                     }
             }
         }
+        .nowColumn()
         .overlay { NowLine(position: now, columns: columns.count) }
         .overlay {
             // The selection's length, above the now line so the line never runs through it.
