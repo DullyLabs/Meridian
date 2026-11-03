@@ -58,7 +58,7 @@ struct HourStrip: View {
     var body: some View {
         HStack(spacing: 1) {
             ForEach(Array(cells.enumerated()), id: \.element.id) { index, cell in
-                HourCellView(cell: cell, previous: index > 0 ? cells[index - 1] : nil, twelveHour: twelveHour, large: false)
+                HourCellView(cell: cell, previous: index > 0 ? cells[index - 1] : nil, isNow: index == now.map { Int($0) }, twelveHour: twelveHour, large: false)
             }
         }
         .overlay { NowLine(position: now, columns: cells.count) }
@@ -84,10 +84,12 @@ struct NowLine: View {
 }
 
 /// An hour coloured like the sky at that place and time, with the minutes for zones off the hour. Its leading edge marks a
-/// new local day (white or black) or a daylight saving jump (orange). The main grid adds the weekday on a new day.
+/// new local day (white or black) or a daylight saving jump (orange). A white outline marks the current hour, and the main
+/// grid adds the weekday on a new day.
 struct HourCellView: View {
     let cell: HourCell
     let previous: HourCell?
+    let isNow: Bool
     let twelveHour: Bool
     let large: Bool
 
@@ -108,6 +110,12 @@ struct HourCellView: View {
                 if cell.newDay { Rectangle().fill(ink).frame(width: 3) }
                 // Orange edged with the text colour, since orange is also a sky colour.
                 else if (cell.hour - previous.hour + 24) % 24 != 1 { Rectangle().fill(.orange).frame(width: 2).padding(.horizontal, 1).background(ink) }
+            }
+        }
+        .overlay {
+            if isNow {
+                RoundedRectangle(cornerRadius: 3).strokeBorder(.black.opacity(0.7), lineWidth: 4)
+                    .overlay { RoundedRectangle(cornerRadius: 3).strokeBorder(.white, lineWidth: 2) }
             }
         }
         .help(cell.date.formatted(Date.FormatStyle(timeZone: cell.zone).weekday(.wide).month(.abbreviated).day().hour().minute()))

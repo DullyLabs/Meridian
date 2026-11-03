@@ -150,7 +150,7 @@ struct TimeGridView: View {
                 HStack(spacing: 1) {
                     let cells = TimeGrid.cells(in: city.timeZone, columns: columns, at: city.coordinate)
                     ForEach(Array(cells.enumerated()), id: \.element.id) { index, cell in
-                        HourCellView(cell: cell, previous: index > 0 ? cells[index - 1] : nil, twelveHour: twelveHour, large: true)
+                        HourCellView(cell: cell, previous: index > 0 ? cells[index - 1] : nil, isNow: index == now.map { Int($0) }, twelveHour: twelveHour, large: true)
                     }
                 }
                 .frame(height: Self.rowHeight)
@@ -163,9 +163,6 @@ struct TimeGridView: View {
                     let x = width * CGFloat(range.lowerBound)
                     RoundedRectangle(cornerRadius: 4).strokeBorder(.green, lineWidth: 3)
                         .frame(width: width * CGFloat(range.count)).offset(x: x)
-                    Text("\(range.count) hour\(range.count == 1 ? "" : "s")").font(.caption2.bold()).foregroundStyle(.white)
-                        .padding(.horizontal, 6).padding(.vertical, 1).background(.green, in: .capsule).fixedSize()
-                        .position(x: x + width * CGFloat(range.count) / 2, y: 0)
                 }
                 Color.clear.contentShape(.rect)
                     .gesture(DragGesture(minimumDistance: 0)
@@ -184,6 +181,18 @@ struct TimeGridView: View {
             }
         }
         .overlay { NowLine(position: now, columns: columns.count) }
+        .overlay {
+            // The selection's length, above the now line so the line never runs through it.
+            GeometryReader { proxy in
+                if let range {
+                    let width = proxy.size.width / CGFloat(columns.count)
+                    Text("\(range.count) hour\(range.count == 1 ? "" : "s")").font(.caption2.bold()).foregroundStyle(.white)
+                        .padding(.horizontal, 6).padding(.vertical, 1).background(.green, in: .capsule).fixedSize()
+                        .position(x: width * (CGFloat(range.lowerBound) + CGFloat(range.count) / 2), y: 0)
+                }
+            }
+            .allowsHitTesting(false)
+        }
         .frame(maxWidth: .infinity)
     }
 

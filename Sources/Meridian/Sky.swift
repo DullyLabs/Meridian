@@ -24,11 +24,10 @@ enum Sky {
         return asin(sin(latitude) * sin(declination) + cos(latitude) * cos(declination) * cos(hourAngle)) / rad
     }
 
-    /// Night navy through twilight violet, dusk purple, dawn pink, sunrise orange, golden hour and haze to daytime blue.
+    /// Black at night, through ember and orange at sunrise and sunset, to the warm yellow of the sun high in the sky.
     private static let stops: [(elevation: Double, rgb: (Double, Double, Double))] = [
-        (-18, (0.07, 0.09, 0.22)), (-12, (0.14, 0.16, 0.36)), (-6, (0.33, 0.30, 0.52)), (-4, (0.52, 0.34, 0.58)),
-        (-2, (0.84, 0.52, 0.54)), (2, (0.97, 0.66, 0.40)), (8, (0.98, 0.83, 0.56)), (12, (0.96, 0.92, 0.78)),
-        (16, (0.85, 0.91, 0.96)), (20, (0.62, 0.80, 0.95)), (60, (0.47, 0.72, 0.97)),
+        (-18, (0.05, 0.05, 0.06)), (-12, (0.10, 0.08, 0.07)), (-6, (0.26, 0.14, 0.07)), (-2, (0.55, 0.27, 0.09)),
+        (2, (0.85, 0.45, 0.13)), (10, (0.97, 0.63, 0.22)), (25, (1.0, 0.76, 0.36)), (60, (1.0, 0.84, 0.50)),
     ]
 
     static func rgb(_ elevation: Double) -> (Double, Double, Double) {
