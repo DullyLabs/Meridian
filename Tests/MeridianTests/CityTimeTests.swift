@@ -41,7 +41,7 @@ struct CityTimeTests {
     private func hours(_ zone: String, day: String, home: TimeZone? = nil) -> [HourCell] {
         let home = home ?? utc
         let columns = TimeGrid.dayColumns(home: home, date: ISO8601DateFormatter().date(from: day)!)
-        return TimeGrid.cells(in: TimeZone(identifier: zone)!, columns: columns)
+        return TimeGrid.cells(in: TimeZone(identifier: zone)!, columns: columns, at: Sky.coordinate(for: TimeZone(identifier: zone)!))
     }
 
     @Test func testGridHasTwentyFourColumnsFromHomeMidnight() {
@@ -86,12 +86,50 @@ struct CityTimeTests {
         #expect(City.defaults.map(\.displayName).dropFirst() == ["London", "New York", "Tokyo", "UTC"])
     }
 
-    @Test func testBandsAndOffsets() {
-        #expect([3, 7, 12, 18, 23].map(Band.init) == [.night, .edge, .work, .edge, .night])
+    @Test func testSunElevationFollowsSunriseAndSunset() {
+        // London sunrise on 2026-06-21 is 04:43 BST (03:43Z), sunset 21:21 BST (20:21Z); Colombo's sun is near overhead at noon.
+        let london = Sky.coordinate(for: TimeZone(identifier: "Europe/London")!)
+        let colombo = Sky.coordinate(for: TimeZone(identifier: "Asia/Colombo")!)
+        let at = { (iso: String) in ISO8601DateFormatter().date(from: iso)! }
+        #expect(Sky.elevation(at: at("2026-06-21T03:30:00Z"), london) < 0)
+        #expect(Sky.elevation(at: at("2026-06-21T04:00:00Z"), london) > 0)
+        #expect(Sky.elevation(at: at("2026-06-21T20:10:00Z"), london) > 0)
+        #expect(Sky.elevation(at: at("2026-06-21T20:40:00Z"), london) < 0)
+        #expect(Sky.elevation(at: at("2026-11-05T06:30:00Z"), colombo) > 60)   // 12:00 Colombo
+        #expect(Sky.elevation(at: at("2026-11-05T18:30:00Z"), colombo) < -60)  // 00:00 Colombo
+        #expect(abs(colombo.latitude - 6.93) < 0.01 && abs(colombo.longitude - 79.85) < 0.01)
+        #expect(Sky.coordinate(for: utc) == Coordinate(latitude: 0, longitude: 0))
+        #expect(Sky.coordinate(for: TimeZone(identifier: "Asia/Calcutta")!) == Sky.coordinate(for: TimeZone(identifier: "Asia/Kolkata")!))
+        #expect(abs(City.all.first { $0.name == "Kolkata" }!.coordinate.latitude - 22.53) < 0.01)
+        #expect(City.all.first { $0.name == "Kyiv" }!.zone == "Europe/Kyiv")
+    }
+
+    @Test func testSkyColourIsDarkAtNightAndBrightByDay() {
+        #expect(!Sky.color(-30).isBright && !Sky.color(-8).isBright)
+        #expect(Sky.color(5).isBright && Sky.color(45).isBright)
+    }
+
+    @Test func testAliasUsesItsOwnCityForTheSun() {
+        let mumbai = City.all.first { $0.name == "Mumbai" }!
+        #expect(mumbai.coordinate.latitude == 19.08)
+        #expect(City(name: "Kolkata", zone: "Asia/Kolkata").coordinate == Sky.coordinate(for: TimeZone(identifier: "Asia/Kolkata")!))
+    }
+
+    @Test func testNowPositionIsAFractionalColumn() {
+        let colombo = TimeZone(identifier: "Asia/Colombo")!
+        let columns = TimeGrid.dayColumns(home: colombo, date: ISO8601DateFormatter().date(from: "2026-11-05T12:00:00Z")!)
+        // 2026-11-05T12:00Z is 17:30 Colombo: halfway through column 17.
+        #expect(TimeGrid.position(of: ISO8601DateFormatter().date(from: "2026-11-05T12:00:00Z")!, in: columns) == 17.5)
+        #expect(TimeGrid.fraction(17.5, in: 17) == 0.5 && TimeGrid.fraction(17.5, in: 16) == nil && TimeGrid.fraction(nil, in: 17) == nil)
+        #expect(TimeGrid.position(of: columns[0] - 1, in: columns) == nil)
+        #expect(TimeGrid.position(of: columns[23] + 3600, in: columns) == nil)
+    }
+
+    @Test func testOffsets() {
         #expect(TimeGrid.utcOffset(TimeZone(identifier: "Asia/Kolkata")!, at: date) == "UTC+5:30")
         #expect(TimeGrid.utcOffset(TimeZone(identifier: "America/Los_Angeles")!, at: date) == "UTC\u{2212}7")
         #expect(TimeGrid.utcOffset(utc, at: date) == "UTC")
-        #expect(HourCell(date: date, zone: utc, hour: 14, minute: 0, newDay: false).label(twelveHour: true) == "2p")
+        #expect(HourCell(date: date, zone: utc, hour: 14, minute: 0, newDay: false, elevation: 0).label(twelveHour: true) == "2p")
     }
 
     // MARK: - Grid mapping
@@ -102,7 +140,7 @@ struct CityTimeTests {
         TimeGrid.dayColumns(home: zone(home), date: instant(day), days: days)
     }
     private func cells(_ zoneID: String, _ columns: [Date]) -> [HourCell] {
-        TimeGrid.cells(in: zone(zoneID), columns: columns)
+        TimeGrid.cells(in: zone(zoneID), columns: columns, at: Sky.coordinate(for: zone(zoneID)))
     }
     private func clock(_ cells: [HourCell], _ i: Int) -> (Int, Int) { (cells[i].hour, cells[i].minute) }
     private func newDays(_ cells: [HourCell]) -> [Int] { cells.indices.filter { cells[$0].newDay } }
