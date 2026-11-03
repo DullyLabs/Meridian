@@ -3,7 +3,7 @@ import Foundation
 /// A place to show the time for: a named city in a time zone, or this Mac's own time zone.
 struct City: Identifiable, Hashable {
     static let local = City(name: "", zone: localID)
-    static let defaults: [City] = [.local, named("London"), named("New York"), named("Tokyo"), named("Sydney")]
+    static let defaults: [City] = [.local] + ["London", "New York", "Tokyo", "UTC"].compactMap { name in all.first { $0.name == name } }
 
     private static let localID = "local"
 
@@ -27,8 +27,6 @@ struct City: Identifiable, Hashable {
         self.init(name: parts[0], zone: parts[1])
     }
 
-    static func named(_ name: String) -> City { all.first { $0.name == name }! }
-
     static func search(_ query: String) -> [City] {
         query.isEmpty ? all : all.filter { $0.name.localizedStandardContains(query) || $0.zone.localizedStandardContains(query) }
     }
@@ -51,7 +49,7 @@ struct City: Identifiable, Hashable {
         "Beijing": "Asia/Shanghai", "Shenzhen": "Asia/Shanghai", "Abu Dhabi": "Asia/Dubai", "Hanoi": "Asia/Ho_Chi_Minh",
         "Kyoto": "Asia/Tokyo", "Osaka": "Asia/Tokyo", "Canberra": "Australia/Sydney",
         "Barcelona": "Europe/Madrid", "Milan": "Europe/Rome", "Munich": "Europe/Berlin", "Geneva": "Europe/Zurich",
-        "Edinburgh": "Europe/London", "Manchester": "Europe/London", "Wellington": "Pacific/Auckland",
+        "Edinburgh": "Europe/London", "Manchester": "Europe/London", "Wellington": "Pacific/Auckland", "UTC": "UTC",
     ]
 
     static let all: [City] = {

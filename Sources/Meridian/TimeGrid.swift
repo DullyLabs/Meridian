@@ -15,7 +15,7 @@ enum Band {
     var color: Color {
         switch self {
         case .work: Color(white: 0.8)
-        case .edge: Color(red: 0.45, green: 0.52, blue: 0.62)
+        case .edge: Color(red: 0.36, green: 0.42, blue: 0.53)
         case .night: Color(red: 0.10, green: 0.14, blue: 0.30)
         }
     }
@@ -31,8 +31,7 @@ struct HourCell: Identifiable {
     let newDay: Bool
     var band: Band { Band(hour: hour) }
     var id: Date { date }
-    /// "NOV 2" and "MON", in the zone's own calendar.
-    var dateTag: String { date.formatted(Date.FormatStyle(timeZone: zone).month(.abbreviated).day()).uppercased() }
+    /// "MON", in the zone's own calendar.
     var weekday: String { date.formatted(Date.FormatStyle(timeZone: zone).weekday(.abbreviated)).uppercased() }
 
     /// "14" or "2p".
@@ -42,23 +41,22 @@ struct HourCell: Identifiable {
 }
 
 enum TimeGrid {
-    /// Hourly columns starting at the first instant of the home zone's day containing `date`, shifted by `days`.
+    /// Hourly columns from 00:00 to 00:00 in the home zone on the day containing `date`, shifted by `days`.
+    /// Daylight saving days have 23 or 25 columns.
     static func dayColumns(home: TimeZone, date: Date, days: Int = 0) -> [Date] {
-        var calendar = Calendar(identifier: .gregorian)
-        calendar.timeZone = home
-        let day = calendar.date(byAdding: .day, value: days, to: date)!
-        return hourly(from: calendar.startOfDay(for: day), count: 24)
+        let calendar = calendar(home)
+        let start = calendar.startOfDay(for: calendar.date(byAdding: .day, value: days, to: date)!)
+        return Array(stride(from: start, to: calendar.date(byAdding: .day, value: 1, to: start)!, by: 3600))
     }
 
-    /// `count` hourly columns starting at the hour containing `date`.
-    static func hourly(from date: Date, count: Int) -> [Date] {
-        let start = Date(timeIntervalSinceReferenceDate: (date.timeIntervalSinceReferenceDate / 3600).rounded(.down) * 3600)
-        return (0..<count).map { start + Double($0 * 3600) }
+    private static func calendar(_ zone: TimeZone) -> Calendar {
+        var calendar = Calendar(identifier: .gregorian)
+        calendar.timeZone = zone
+        return calendar
     }
 
     static func cells(in zone: TimeZone, columns: [Date]) -> [HourCell] {
-        var calendar = Calendar(identifier: .gregorian)
-        calendar.timeZone = zone
+        let calendar = calendar(zone)
         var previousDay: Int?
         return columns.map { date in
             let parts = calendar.dateComponents([.day, .hour, .minute], from: date)
@@ -69,9 +67,14 @@ enum TimeGrid {
 
     /// "UTC+5:30", "UTC-8" or "UTC".
     static func utcOffset(_ zone: TimeZone, at date: Date) -> String {
-        let minutes = zone.secondsFromGMT(for: date) / 60
-        guard minutes != 0 else { return "UTC" }
+        "UTC" + (offset(zone.secondsFromGMT(for: date)) ?? "")
+    }
+
+    /// "+5:30", "−7", or nil for no offset.
+    static func offset(_ seconds: Int) -> String? {
+        let minutes = seconds / 60
+        guard minutes != 0 else { return nil }
         let sign = minutes > 0 ? "+" : "\u{2212}"
-        return "UTC\(sign)\(abs(minutes) / 60)" + (minutes % 60 == 0 ? "" : String(format: ":%02d", abs(minutes) % 60))
+        return "\(sign)\(abs(minutes) / 60)" + (minutes % 60 == 0 ? "" : String(format: ":%02d", abs(minutes) % 60))
     }
 }
