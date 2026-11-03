@@ -291,4 +291,12 @@ struct CityTimeTests {
         #expect(City.all.filter { ["Calcutta", "Kolkata"].contains($0.name) }.map(\.name) == ["Kolkata"])
         #expect(City.all.count == Set(City.all.map(\.name)).count)
     }
+
+    @Test func testSummaryHasOneLinePerCityWithTheEndDayWhenItDiffers() {
+        let cities = [City(name: "London", zone: "Europe/London"), City(name: "Tokyo", zone: "Asia/Tokyo")]
+        let start = instant("2026-11-03T14:00:00Z"), end = instant("2026-11-03T16:00:00Z")
+        #expect(TimeGrid.summary(cities, start: start, end: nil, twelveHour: false) == "London: Tue 3 Nov, 14:00\nTokyo: Tue 3 Nov, 23:00")
+        #expect(TimeGrid.summary(cities, start: start, end: end, twelveHour: true)
+            == "London: Tue, Nov 3, 2:00 PM - 4:00 PM\nTokyo: Tue, Nov 3, 11:00 PM - Wed, Nov 4, 1:00 AM")
+    }
 }
