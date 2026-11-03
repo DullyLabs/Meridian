@@ -10,12 +10,12 @@ struct WorldClockView: View {
     var body: some View {
         let home = cities.first?.timeZone ?? .autoupdatingCurrent
         let columns = TimeGrid.dayColumns(home: home, date: date)
-        let now = columns.lastIndex { $0 <= date }
+        let now = TimeGrid.position(of: date, in: columns)
         let locale = Locale(identifier: twelveHour ? "en_US" : "en_GB")
         VStack(spacing: 4) {
             ForEach(cities) { city in
                 ClockRow(time: CityTime(city: city, date: date, localZone: home, locale: locale),
-                         cells: TimeGrid.cells(in: city.timeZone, columns: columns), now: now, twelveHour: twelveHour)
+                         cells: TimeGrid.cells(in: city.timeZone, columns: columns, at: city.coordinate), now: now, twelveHour: twelveHour)
             }
         }
     }
@@ -24,7 +24,7 @@ struct WorldClockView: View {
 struct ClockRow: View {
     let time: CityTime
     let cells: [HourCell]
-    let now: Int?
+    let now: Double?
     let twelveHour: Bool
 
     var body: some View {
@@ -52,31 +52,48 @@ struct ClockRow: View {
 /// One row of hour cells for the widget.
 struct HourStrip: View {
     let cells: [HourCell]
-    let now: Int?
+    let now: Double?
     let twelveHour: Bool
 
     var body: some View {
         HStack(spacing: 1) {
             ForEach(Array(cells.enumerated()), id: \.element.id) { index, cell in
-                HourCellView(cell: cell, previous: index > 0 ? cells[index - 1] : nil, isNow: index == now, twelveHour: twelveHour, large: false)
+                HourCellView(cell: cell, previous: index > 0 ? cells[index - 1] : nil, twelveHour: twelveHour, large: false)
             }
         }
+        .overlay { NowLine(position: now, columns: cells.count) }
         .frame(height: 32)
     }
 }
 
-/// An hour coloured by band, with the minutes for zones off the hour. Its leading edge marks a new local day (white or
-/// black) or a daylight saving jump (orange); an orange outline marks the current hour. The main grid adds the weekday
-/// on a new day.
+/// A red line at the current time, `position` columns from the left edge.
+struct NowLine: View {
+    let position: Double?
+    let columns: Int
+
+    var body: some View {
+        GeometryReader { proxy in
+            if let position {
+                // A dark halo keeps the red visible on the pink, orange and blue cells.
+                Rectangle().fill(Color(red: 0.87, green: 0.12, blue: 0.12)).frame(width: 2).padding(.horizontal, 1).background(.black.opacity(0.7))
+                    .offset(x: proxy.size.width * position / Double(columns) - 2)
+            }
+        }
+        .allowsHitTesting(false)
+    }
+}
+
+/// An hour coloured like the sky at that place and time, with the minutes for zones off the hour. Its leading edge marks a
+/// new local day (white or black) or a daylight saving jump (orange). The main grid adds the weekday on a new day.
 struct HourCellView: View {
     let cell: HourCell
     let previous: HourCell?
-    let isNow: Bool
     let twelveHour: Bool
     let large: Bool
 
     var body: some View {
-        let ink = cell.band == .work ? Color.black : .white
+        let sky = Sky.color(cell.elevation)
+        let ink = sky.isBright ? Color.black : .white
         VStack(spacing: 0) {
             if large { Text(cell.newDay ? cell.weekday : " ").font(.system(size: 9, weight: .bold)) }
             Text(cell.label(twelveHour: twelveHour)).font(.system(size: large ? 16 : 11, weight: .semibold).monospacedDigit())
@@ -85,14 +102,14 @@ struct HourCellView: View {
         .foregroundStyle(ink)
         .minimumScaleFactor(0.5).lineLimit(1)
         .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .background(cell.band.color, in: .rect(cornerRadius: 3))
+        .background(sky.color, in: .rect(cornerRadius: 3))
         .overlay(alignment: .leading) {
             if let previous {
-                if cell.newDay { Rectangle().fill(ink.opacity(0.85)).frame(width: 2) }
-                else if (cell.hour - previous.hour + 24) % 24 != 1 { Rectangle().fill(.orange).frame(width: 2) }
+                if cell.newDay { Rectangle().fill(ink).frame(width: 3) }
+                // Orange edged with the text colour, since orange is also a sky colour.
+                else if (cell.hour - previous.hour + 24) % 24 != 1 { Rectangle().fill(.orange).frame(width: 2).padding(.horizontal, 1).background(ink) }
             }
         }
-        .overlay { if isNow { RoundedRectangle(cornerRadius: 3).strokeBorder(.orange, lineWidth: 2) } }
         .help(cell.date.formatted(Date.FormatStyle(timeZone: cell.zone).weekday(.wide).month(.abbreviated).day().hour().minute()))
     }
 }

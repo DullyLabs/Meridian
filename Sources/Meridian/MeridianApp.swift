@@ -64,7 +64,8 @@ struct TimeGridView: View {
         TimelineView(.everyMinute) { context in
             let cities = cities
             let columns = TimeGrid.dayColumns(home: cities.first?.timeZone ?? .current, date: context.date, days: dayOffset)
-            let now = columns.firstIndex { $0 <= context.date && context.date < $0 + 3600 }
+            let position = TimeGrid.position(of: context.date, in: columns)
+            let now = position.map { Int($0) }
             // Clamped, since a selection made on a longer day can outlast it (daylight saving days have 23 or 25 columns).
             let range = (drag.map { min($0.from, $0.to)...max($0.from, $0.to) } ?? (hovered ?? now).map { $0...$0 })?
                 .clamped(to: 0...(columns.count - 1))
@@ -77,7 +78,7 @@ struct TimeGridView: View {
                         }
                     }
                     .frame(width: 400)
-                    timeline(cities: cities, columns: columns, now: now, range: range)
+                    timeline(cities: cities, columns: columns, now: position, range: range)
                 }
                 Spacer(minLength: 0)
             }
@@ -143,13 +144,13 @@ struct TimeGridView: View {
         return date.formatted(twelveHour ? style.hour(.defaultDigits(amPM: .abbreviated)).minute() : style.hour(.twoDigits(amPM: .omitted)).minute(.twoDigits))
     }
 
-    private func timeline(cities: [City], columns: [Date], now: Int?, range: ClosedRange<Int>?) -> some View {
+    private func timeline(cities: [City], columns: [Date], now: Double?, range: ClosedRange<Int>?) -> some View {
         VStack(spacing: 4) {
             ForEach(cities) { city in
                 HStack(spacing: 1) {
-                    let cells = TimeGrid.cells(in: city.timeZone, columns: columns)
+                    let cells = TimeGrid.cells(in: city.timeZone, columns: columns, at: city.coordinate)
                     ForEach(Array(cells.enumerated()), id: \.element.id) { index, cell in
-                        HourCellView(cell: cell, previous: index > 0 ? cells[index - 1] : nil, isNow: index == now, twelveHour: twelveHour, large: true)
+                        HourCellView(cell: cell, previous: index > 0 ? cells[index - 1] : nil, twelveHour: twelveHour, large: true)
                     }
                 }
                 .frame(height: Self.rowHeight)
@@ -182,6 +183,7 @@ struct TimeGridView: View {
                     }
             }
         }
+        .overlay { NowLine(position: now, columns: columns.count) }
         .frame(maxWidth: .infinity)
     }
 

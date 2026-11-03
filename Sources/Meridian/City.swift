@@ -39,22 +39,33 @@ struct City: Identifiable, Hashable {
 
     private static let renamed = ["Calcutta": "Kolkata", "Katmandu": "Kathmandu", "Rangoon": "Yangon", "Kiev": "Kyiv", "Saigon": "Ho Chi Minh"]
 
-    /// Big cities that share a time zone named after another city.
-    private static let aliases = [
-        "San Francisco": "America/Los_Angeles", "Seattle": "America/Los_Angeles", "Las Vegas": "America/Los_Angeles",
-        "Washington": "America/New_York", "Boston": "America/New_York", "Miami": "America/New_York", "Atlanta": "America/New_York",
-        "Austin": "America/Chicago", "Dallas": "America/Chicago", "Houston": "America/Chicago",
-        "Montreal": "America/Toronto", "Rio de Janeiro": "America/Sao_Paulo",
-        "Mumbai": "Asia/Kolkata", "Delhi": "Asia/Kolkata", "Bangalore": "Asia/Kolkata",
-        "Beijing": "Asia/Shanghai", "Shenzhen": "Asia/Shanghai", "Abu Dhabi": "Asia/Dubai", "Hanoi": "Asia/Ho_Chi_Minh",
-        "Kyoto": "Asia/Tokyo", "Osaka": "Asia/Tokyo", "Canberra": "Australia/Sydney",
-        "Barcelona": "Europe/Madrid", "Milan": "Europe/Rome", "Munich": "Europe/Berlin", "Geneva": "Europe/Zurich",
-        "Edinburgh": "Europe/London", "Manchester": "Europe/London", "Wellington": "Pacific/Auckland", "UTC": "UTC",
+    /// Big cities that share a time zone named after another city, with their own coordinates for the sky colours.
+    private static let aliases: [String: (zone: String, latitude: Double, longitude: Double)] = [
+        "San Francisco": ("America/Los_Angeles", 37.77, -122.42), "Seattle": ("America/Los_Angeles", 47.61, -122.33),
+        "Las Vegas": ("America/Los_Angeles", 36.17, -115.14), "Washington": ("America/New_York", 38.91, -77.04),
+        "Boston": ("America/New_York", 42.36, -71.06), "Miami": ("America/New_York", 25.76, -80.19),
+        "Atlanta": ("America/New_York", 33.75, -84.39), "Austin": ("America/Chicago", 30.27, -97.74),
+        "Dallas": ("America/Chicago", 32.78, -96.80), "Houston": ("America/Chicago", 29.76, -95.37),
+        "Montreal": ("America/Toronto", 45.50, -73.57), "Rio de Janeiro": ("America/Sao_Paulo", -22.91, -43.17),
+        "Mumbai": ("Asia/Kolkata", 19.08, 72.88), "Delhi": ("Asia/Kolkata", 28.61, 77.21), "Bangalore": ("Asia/Kolkata", 12.97, 77.59),
+        "Beijing": ("Asia/Shanghai", 39.90, 116.41), "Shenzhen": ("Asia/Shanghai", 22.54, 114.06), "Abu Dhabi": ("Asia/Dubai", 24.45, 54.38),
+        "Hanoi": ("Asia/Ho_Chi_Minh", 21.03, 105.85), "Kyoto": ("Asia/Tokyo", 35.01, 135.77), "Osaka": ("Asia/Tokyo", 34.69, 135.50),
+        "Canberra": ("Australia/Sydney", -35.28, 149.13), "Barcelona": ("Europe/Madrid", 41.39, 2.17), "Milan": ("Europe/Rome", 45.46, 9.19),
+        "Munich": ("Europe/Berlin", 48.14, 11.58), "Geneva": ("Europe/Zurich", 46.20, 6.14), "Edinburgh": ("Europe/London", 55.95, -3.19),
+        "Manchester": ("Europe/London", 53.48, -2.24), "Wellington": ("Pacific/Auckland", -41.29, 174.78), "UTC": ("UTC", 0, 0),
     ]
 
+    /// Where the sun is judged from: the alias's own city, else the zone's main city.
+    var coordinate: Coordinate {
+        if let alias = Self.aliases[displayName], alias.zone == timeZone.identifier { return Coordinate(latitude: alias.latitude, longitude: alias.longitude) }
+        return Sky.coordinate(for: timeZone)
+    }
+
     static let all: [City] = {
+        // Current names first, so "Kolkata" gets Asia/Kolkata rather than the old Asia/Calcutta.
         let zones = TimeZone.knownTimeZoneIdentifiers.filter { $0.contains("/") && !$0.hasPrefix("Etc/") }
-        let cities = zones.map { City(name: cityName($0), zone: $0) } + aliases.map { City(name: $0.key, zone: $0.value) }
+            .sorted { Sky.links[$0] == nil && Sky.links[$1] != nil }
+        let cities = zones.map { City(name: cityName($0), zone: $0) } + aliases.map { City(name: $0.key, zone: $0.value.zone) }
         var seen = Set<String>()
         return cities.filter { seen.insert($0.name).inserted }.sorted { $0.name.localizedStandardCompare($1.name) == .orderedAscending }
     }()
