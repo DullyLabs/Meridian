@@ -1,25 +1,4 @@
-import SwiftUI
-
-/// How comfortable an hour is to be awake in: daytime, early morning or evening, or night.
-enum Band {
-    case work, edge, night
-
-    init(hour: Int) {
-        switch hour {
-        case 8..<18: self = .work
-        case 6..<8, 18..<22: self = .edge
-        default: self = .night
-        }
-    }
-
-    var color: Color {
-        switch self {
-        case .work: Color(white: 0.8)
-        case .edge: Color(red: 0.36, green: 0.42, blue: 0.53)
-        case .night: Color(red: 0.10, green: 0.14, blue: 0.30)
-        }
-    }
-}
+import Foundation
 
 /// One zone's local time at one grid column.
 struct HourCell: Identifiable {
@@ -29,7 +8,8 @@ struct HourCell: Identifiable {
     let minute: Int
     /// The local calendar day differs from the previous column (always true for the first column).
     let newDay: Bool
-    var band: Band { Band(hour: hour) }
+    /// The sun's elevation in degrees halfway through the hour.
+    let elevation: Double
     var id: Date { date }
     /// "MON", in the zone's own calendar.
     var weekday: String { date.formatted(Date.FormatStyle(timeZone: zone).weekday(.abbreviated)).uppercased() }
@@ -55,13 +35,14 @@ enum TimeGrid {
         return calendar
     }
 
-    static func cells(in zone: TimeZone, columns: [Date]) -> [HourCell] {
+    static func cells(in zone: TimeZone, columns: [Date], at place: Coordinate) -> [HourCell] {
         let calendar = calendar(zone)
         var previousDay: Int?
         return columns.map { date in
             let parts = calendar.dateComponents([.day, .hour, .minute], from: date)
             defer { previousDay = parts.day }
-            return HourCell(date: date, zone: zone, hour: parts.hour!, minute: parts.minute!, newDay: parts.day != previousDay)
+            return HourCell(date: date, zone: zone, hour: parts.hour!, minute: parts.minute!, newDay: parts.day != previousDay,
+                            elevation: Sky.elevation(at: date + 1800, place))
         }
     }
 
@@ -88,6 +69,12 @@ enum TimeGrid {
     }
 
     private static func locale(_ twelveHour: Bool) -> Locale { Locale(identifier: twelveHour ? "en_US" : "en_GB") }
+
+    /// Where `date` falls as a fractional column index, e.g. 9.25 a quarter of the way through column 9.
+    static func position(of date: Date, in columns: [Date]) -> Double? {
+        guard let index = columns.lastIndex(where: { $0 <= date }), date < columns[index] + 3600 else { return nil }
+        return Double(index) + date.timeIntervalSince(columns[index]) / 3600
+    }
 
     /// "UTC+5:30", "UTC-8" or "UTC".
     static func utcOffset(_ zone: TimeZone, at date: Date) -> String {
