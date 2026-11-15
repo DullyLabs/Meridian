@@ -338,3 +338,19 @@ struct CityTimeTests {
             == "London: Tue, Nov 3, 2:00 PM - 4:00 PM\nTokyo: Tue, Nov 3, 11:00 PM - Wed, Nov 4, 1:00 AM")
     }
 }
+
+struct MenuBarTests {
+    // 2026-11-18 14:41 UTC, 09:41 in New York
+    private let date = ISO8601DateFormatter().date(from: "2026-11-18T14:41:00Z")!
+
+    @Test func testShowsTheSecondCityShortTime() {
+        let cities = City.list(City.defaultIDs)
+        #expect(MenuBarLabel.title(cities, date: date, twelveHour: false) == "LON 14:41")
+        #expect(MenuBarLabel.title(Array(cities.dropFirst(2)), date: date, twelveHour: false) == "TOK 23:41")
+        #expect(MenuBarLabel.title([City.local, cities[2]], date: date, twelveHour: true) == "NY 9:41\u{202F}AM")
+    }
+
+    @Test func testOneCityShowsTheGlobe() {
+        #expect(MenuBarLabel.title([.local], date: date, twelveHour: false) == nil)
+    }
+}
