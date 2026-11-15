@@ -65,12 +65,13 @@ struct TimeGridView: View {
             let cities = cities
             let columns = TimeGrid.dayColumns(home: cities.first?.timeZone ?? .current, date: context.date, days: dayOffset)
             let position = TimeGrid.position(of: context.date, in: columns)
+            let work = TimeGrid.sharedWorkHours(cities, columns: columns)
             let now = position.map { Int($0) }
             // Clamped, since a selection made on a longer day can outlast it (daylight saving days have 23 or 25 columns).
             let range = (drag.map { min($0.from, $0.to)...max($0.from, $0.to) } ?? (hovered ?? now).map { $0...$0 })?
                 .clamped(to: 0...(columns.count - 1))
             VStack(spacing: 10) {
-                toolbar(cities: cities, columns: columns)
+                toolbar(cities: cities, columns: columns, noWork: work.isEmpty)
                 HStack(alignment: .bottom, spacing: 12) {
                     VStack(spacing: 4) {
                         ForEach(Array(cities.enumerated()), id: \.element.id) { index, city in
@@ -78,7 +79,7 @@ struct TimeGridView: View {
                         }
                     }
                     .frame(width: 400)
-                    timeline(cities: cities, columns: columns, now: position, range: range)
+                    timeline(cities: cities, columns: columns, now: position, range: range, work: work)
                 }
                 Spacer(minLength: 0)
             }
@@ -90,13 +91,14 @@ struct TimeGridView: View {
         }
     }
 
-    private func toolbar(cities: [City], columns: [Date]) -> some View {
+    private func toolbar(cities: [City], columns: [Date], noWork: Bool) -> some View {
         HStack {
             Button("Today") { dayOffset = 0 }.disabled(dayOffset == 0)
             Button { dayOffset -= 1 } label: { Image(systemName: "chevron.left") }
             Button { dayOffset += 1 } label: { Image(systemName: "chevron.right") }
             Text(columns[0].formatted(Date.FormatStyle(timeZone: cities.first?.timeZone ?? .current).weekday(.wide).day().month(.wide)))
                 .font(.headline)
+            if noWork { Text("No shared working hours").foregroundStyle(.secondary) }
             Spacer()
             Picker("", selection: $twelveHour) { Text("am pm").tag(true); Text("24").tag(false) }
                 .pickerStyle(.segmented).labelsHidden().fixedSize()
@@ -149,7 +151,7 @@ struct TimeGridView: View {
         NSPasteboard.general.setString(TimeGrid.summary(cities, start: start, end: end, twelveHour: twelveHour), forType: .string)
     }
 
-    private func timeline(cities: [City], columns: [Date], now: Double?, range: ClosedRange<Int>?) -> some View {
+    private func timeline(cities: [City], columns: [Date], now: Double?, range: ClosedRange<Int>?, work: [ClosedRange<Int>]) -> some View {
         VStack(spacing: 4) {
             ForEach(cities) { city in
                 HStack(spacing: HourCellView.gap) {
@@ -159,6 +161,19 @@ struct TimeGridView: View {
                     }
                 }
                 .frame(height: Self.rowHeight)
+            }
+        }
+        .overlay(alignment: .bottomLeading) {
+            // Hours inside 9 to 5 for everyone, as a green bar under the grid so the sun colours stay as they are.
+            GeometryReader { proxy in
+                let width = proxy.size.width / CGFloat(columns.count)
+                ForEach(work, id: \.lowerBound) { hours in
+                    let label = "Working hours for everyone: \(clock(columns[hours.lowerBound], cities[0].timeZone)) - \(clock(columns[hours.upperBound] + 3600, cities[0].timeZone))"
+                    Capsule().fill(.green)
+                        .frame(width: width * CGFloat(hours.count) - HourCellView.gap, height: 6)
+                        .offset(x: width * CGFloat(hours.lowerBound), y: proxy.size.height + 6)
+                        .help(label).accessibilityLabel(label)
+                }
             }
         }
         .overlay {

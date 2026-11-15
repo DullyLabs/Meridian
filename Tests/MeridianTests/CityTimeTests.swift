@@ -337,4 +337,23 @@ struct CityTimeTests {
         #expect(TimeGrid.summary(cities, start: start, end: end, twelveHour: true)
             == "London: Tue, Nov 3, 2:00 PM - 4:00 PM\nTokyo: Tue, Nov 3, 11:00 PM - Wed, Nov 4, 1:00 AM")
     }
+
+    private func work(_ zones: [String], day: String) -> [ClosedRange<Int>] {
+        TimeGrid.sharedWorkHours(zones.map { City(name: City.cityName($0), zone: $0) }, columns: columns(home: zones[0], day: day))
+    }
+
+    @Test func testSharedWorkHours() {
+        let wednesday = "2026-11-18T12:00:00Z"
+        #expect(work(["Europe/London", "America/New_York"], day: wednesday) == [14...16])
+        #expect(work(["Europe/London", "Asia/Tokyo"], day: wednesday) == [])
+        #expect(work(["Europe/London", "America/New_York"], day: "2026-11-21T12:00:00Z") == [])
+        // Kolkata is +5:30, so London's 11:00 column runs 16:30-17:30 there and is out.
+        #expect(work(["Europe/London", "Asia/Kolkata"], day: wednesday) == [9...10])
+        // UTC is no one's office, so it doesn't narrow the result.
+        #expect(work(["America/New_York", "UTC"], day: wednesday) == [9...16])
+        #expect(TimeGrid.sharedWorkHours([], columns: columns(home: "UTC", day: wednesday)) == [])
+        // London's 25-column fall-back Sunday ends on Monday 9:00-13:00 in Auckland (+13), columns 21...24.
+        let fallBack = columns(home: "Europe/London", day: "2026-10-25T12:00:00Z")
+        #expect(TimeGrid.sharedWorkHours([City(name: "Auckland", zone: "Pacific/Auckland")], columns: fallBack) == [21...24])
+    }
 }
