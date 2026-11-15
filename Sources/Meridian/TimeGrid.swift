@@ -35,6 +35,24 @@ enum TimeGrid {
         return calendar
     }
 
+    /// Runs of columns whose whole hour falls inside `workday` on a Monday to Friday in every city. UTC is no one's
+    /// office, so it's skipped. A half-hour zone's 8:30 or 16:30 column only half overlaps, so it's out.
+    static func sharedWorkHours(_ cities: [City], columns: [Date], workday: Range<Int> = 9..<17) -> [ClosedRange<Int>] {
+        let calendars = cities.filter { $0.zone != "UTC" }.map { calendar($0.timeZone) }
+        guard !calendars.isEmpty else { return [] }
+        let open = (workday.lowerBound * 60)...(workday.upperBound * 60 - 60)
+        let inside = columns.map { date in
+            calendars.allSatisfy { calendar in
+                let parts = calendar.dateComponents([.weekday, .hour, .minute], from: date)
+                return (2...6).contains(parts.weekday!) && open.contains(parts.hour! * 60 + parts.minute!)
+            }
+        }
+        return inside.indices.reduce(into: []) { runs, index in
+            guard inside[index] else { return }
+            if let last = runs.last, last.upperBound == index - 1 { runs[runs.count - 1] = last.lowerBound...index } else { runs.append(index...index) }
+        }
+    }
+
     static func cells(in zone: TimeZone, columns: [Date], at place: Coordinate) -> [HourCell] {
         let calendar = calendar(zone)
         var previousDay: Int?
