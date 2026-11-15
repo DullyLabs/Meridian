@@ -6,6 +6,7 @@ import SwiftUI
 struct MeridianApp: App {
     @NSApplicationDelegateAdaptor private var delegate: AppDelegate
     @AppStorage("showWidget") private var showWidget = true
+    @AppStorage("showMenuBar") private var showMenuBar = true
     @State private var openAtLogin = Self.loginItemOn
 
     var body: some Scene {
@@ -17,9 +18,17 @@ struct MeridianApp: App {
             CommandGroup(after: .appSettings) {
                 Toggle("Desktop Widget", isOn: Binding(get: { showWidget }, set: { showWidget = $0; DesktopWidget.shared.setVisible($0) }))
                     .keyboardShortcut("d")
+                Toggle("Menu Bar Clock", isOn: menuBarShown)
                 Toggle("Open at Login", isOn: Binding(get: { openAtLogin }, set: setOpenAtLogin))
             }
         }
+        MenuBarExtra(isInserted: menuBarShown) { MenuBarClockView() } label: { MenuBarLabel() }
+            .menuBarExtraStyle(.window)
+    }
+
+    /// Also written by macOS when the item is Command-dragged out of the menu bar, so the Dock icon can come back.
+    private var menuBarShown: Binding<Bool> {
+        Binding(get: { showMenuBar }, set: { showMenuBar = $0; DesktopWidget.shared.updateDockIcon() })
     }
 
     /// Registered counts as on even while it waits for approval, so the toggle can still turn it off.
@@ -48,7 +57,7 @@ struct TimeGridView: View {
     static let limit = 5
     private static let rowHeight: CGFloat = 52
 
-    @AppStorage("cities") private var stored = City.defaults.map(\.id).joined(separator: "\n")
+    @AppStorage("cities") private var stored = City.defaultIDs
     @AppStorage("twelveHour") private var twelveHour = CityTime.uses12Hour(.autoupdatingCurrent)
     @Environment(\.openWindow) private var openWindow
     @State private var dayOffset = 0
@@ -57,7 +66,7 @@ struct TimeGridView: View {
     @State private var lastClick: Int?
     @State private var adding = false
 
-    private var cities: [City] { stored.split(separator: "\n").compactMap { City(id: String($0)) } }
+    private var cities: [City] { City.list(stored) }
     private func save(_ cities: [City]) { stored = cities.map(\.id).joined(separator: "\n") }
 
     var body: some View {

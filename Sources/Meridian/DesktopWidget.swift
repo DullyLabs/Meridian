@@ -23,10 +23,11 @@ final class DesktopWidget {
         updateDockIcon()
     }
 
-    /// The Dock icon shows while the window is open or minimized, or while the widget is hidden so the app can still be found.
+    /// The Dock icon shows while the window is open or minimized, or while neither the widget nor the menu bar clock is up so the app can still be found.
     func updateDockIcon() {
         let windowOpen = NSApp.windows.contains { $0.styleMask.contains(.titled) && ($0.isVisible || $0.isMiniaturized) }
-        NSApp.setActivationPolicy(windowOpen || panel?.isVisible != true ? .regular : .accessory)
+        let menuBarOn = UserDefaults.standard.object(forKey: "showMenuBar") as? Bool ?? true
+        NSApp.setActivationPolicy(windowOpen || (panel?.isVisible != true && !menuBarOn) ? .regular : .accessory)
     }
 
     private func show() {
@@ -60,12 +61,12 @@ final class DesktopWidget {
 }
 
 private struct DesktopWidgetView: View {
-    @AppStorage("cities") private var stored = City.defaults.map(\.id).joined(separator: "\n")
+    @AppStorage("cities") private var stored = City.defaultIDs
     @AppStorage("twelveHour") private var twelveHour = CityTime.uses12Hour(.autoupdatingCurrent)
 
     var body: some View {
         TimelineView(.everyMinute) { context in
-            WorldClockView(date: context.date, cities: stored.split(separator: "\n").compactMap { City(id: String($0)) }, twelveHour: twelveHour)
+            WorldClockView(date: context.date, cities: City.list(stored), twelveHour: twelveHour)
         }
         .frame(width: 720)
         .padding(10)
