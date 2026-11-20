@@ -27,8 +27,9 @@ struct City: Identifiable, Hashable {
         self.init(name: parts[0], zone: parts[1])
     }
 
-    static func search(_ query: String) -> [City] {
-        query.isEmpty ? all : all.filter { $0.name.localizedStandardContains(query) || $0.zone.localizedStandardContains(query) }
+    /// Cities matching `query` (all of them when it's empty), without those already `added`.
+    static func search(_ query: String, excluding added: [City] = []) -> [City] {
+        all.filter { !added.contains($0) && (query.isEmpty || $0.name.localizedStandardContains(query) || $0.zone.localizedStandardContains(query)) }
     }
 
     /// "America/Argentina/Buenos_Aires" -> "Buenos Aires", with legacy zone names given their current spelling.

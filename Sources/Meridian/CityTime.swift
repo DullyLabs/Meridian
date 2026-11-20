@@ -21,9 +21,9 @@ struct CityTime {
         let offset = zone.secondsFromGMT(for: date) - localZone.secondsFromGMT(for: date)
         var localCalendar = calendar
         localCalendar.timeZone = localZone
-        let days = localCalendar.dateComponents(
-            [.day], from: localCalendar.startOfDay(for: date), to: localCalendar.startOfDay(for: date + Double(offset))
-        ).day ?? 0
+        // Each zone's own calendar day, since shifting the date by the offset lands an hour out across a daylight saving change.
+        let day = { (calendar: Calendar) in localCalendar.date(from: calendar.dateComponents([.year, .month, .day], from: date)) ?? date }
+        let days = localCalendar.dateComponents([.day], from: day(localCalendar), to: day(calendar)).day ?? 0
         dayLabel = [Self.dayName(days), TimeGrid.offset(offset)].compactMap { $0 }.joined(separator: " · ")
     }
 
