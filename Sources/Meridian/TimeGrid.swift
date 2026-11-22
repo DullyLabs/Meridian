@@ -38,8 +38,8 @@ enum TimeGrid {
     /// Runs of columns whose whole hour falls inside `workday` on a Monday to Friday in every city. UTC is no one's
     /// office, so it's skipped. A half-hour zone's 8:30 or 16:30 column only half overlaps, so it's out.
     static func sharedWorkHours(_ cities: [City], columns: [Date], workday: Range<Int> = 9..<17) -> [ClosedRange<Int>] {
-        let calendars = cities.filter { $0.zone != "UTC" }.map { calendar($0.timeZone) }
-        guard !calendars.isEmpty else { return [] }
+        let calendars = offices(cities).map { calendar($0.timeZone) }
+        guard !calendars.isEmpty, !workday.isEmpty else { return [] }
         let open = (workday.lowerBound * 60)...(workday.upperBound * 60 - 60)
         let inside = columns.map { date in
             calendars.allSatisfy { calendar in
@@ -52,6 +52,13 @@ enum TimeGrid {
             if let last = runs.last, last.upperBound == index - 1 { runs[runs.count - 1] = last.lowerBound...index } else { runs.append(index...index) }
         }
     }
+
+    /// Whether to say there are no shared working hours: only with 2+ offices, since one city has nothing to share.
+    static func noSharedWorkHours(_ cities: [City], columns: [Date]) -> Bool {
+        offices(cities).count > 1 && sharedWorkHours(cities, columns: columns).isEmpty
+    }
+
+    private static func offices(_ cities: [City]) -> [City] { cities.filter { $0.zone != "UTC" } }
 
     static func cells(in zone: TimeZone, columns: [Date], at place: Coordinate) -> [HourCell] {
         let calendar = calendar(zone)

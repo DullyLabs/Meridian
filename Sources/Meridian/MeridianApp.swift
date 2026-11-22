@@ -71,7 +71,7 @@ struct TimeGridView: View {
             let range = (drag.map { min($0.from, $0.to)...max($0.from, $0.to) } ?? (hovered ?? now).map { $0...$0 })?
                 .clamped(to: 0...(columns.count - 1))
             VStack(spacing: 10) {
-                toolbar(cities: cities, columns: columns, noWork: work.isEmpty && cities.filter { $0.zone != "UTC" }.count > 1)
+                toolbar(cities: cities, columns: columns, noWork: TimeGrid.noSharedWorkHours(cities, columns: columns))
                 HStack(alignment: .bottom, spacing: 12) {
                     VStack(spacing: 4) {
                         ForEach(Array(cities.enumerated()), id: \.element.id) { index, city in

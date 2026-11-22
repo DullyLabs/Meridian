@@ -356,4 +356,17 @@ struct CityTimeTests {
         let fallBack = columns(home: "Europe/London", day: "2026-10-25T12:00:00Z")
         #expect(TimeGrid.sharedWorkHours([City(name: "Auckland", zone: "Pacific/Auckland")], columns: fallBack) == [21...24])
     }
+
+    @Test func testNoSharedWorkHours() {
+        func none(_ zones: [String], day: String) -> Bool {
+            TimeGrid.noSharedWorkHours(zones.map { City(name: City.cityName($0), zone: $0) }, columns: columns(home: zones[0], day: day))
+        }
+        let wednesday = "2026-11-18T12:00:00Z"
+        #expect(!none(["Asia/Tokyo"], day: wednesday))
+        #expect(!none(["Europe/London", "UTC"], day: wednesday))
+        #expect(none(["Europe/London", "America/New_York"], day: "2026-11-21T12:00:00Z"))
+        #expect(none(["Europe/London", "Asia/Tokyo"], day: wednesday))
+        #expect(!none(["Europe/London", "America/New_York"], day: wednesday))
+        #expect(TimeGrid.sharedWorkHours([City(name: "London", zone: "Europe/London")], columns: columns(home: "Europe/London", day: wednesday), workday: 9..<9) == [])
+    }
 }
