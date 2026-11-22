@@ -25,7 +25,8 @@ final class DesktopWidget {
 
     /// The Dock icon shows while the window is open or minimized, or while neither the widget nor the menu bar clock is up so the app can still be found.
     func updateDockIcon() {
-        let windowOpen = NSApp.windows.contains { $0.styleMask.contains(.titled) && ($0.isVisible || $0.isMiniaturized) }
+        // Panels (the widget, the menu bar clock's window) don't count as the app's window.
+        let windowOpen = NSApp.windows.contains { !($0 is NSPanel) && $0.styleMask.contains(.titled) && ($0.isVisible || $0.isMiniaturized) }
         let menuBarOn = UserDefaults.standard.object(forKey: "showMenuBar") as? Bool ?? true
         NSApp.setActivationPolicy(windowOpen || (panel?.isVisible != true && !menuBarOn) ? .regular : .accessory)
     }
