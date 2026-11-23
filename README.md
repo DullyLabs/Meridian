@@ -6,7 +6,7 @@ A macOS app and desktop widget that compare up to five time zones hour by hour, 
 make          # swift build, assemble and sign build/Meridian.app
 make install  # copy to ~/Applications and open it
 make test
-make icon     # redraw Icon/AppIcon.icns
+make icon     # rebuild Icon/AppIcon.icns from Icon/ios-icon.png (the iOS app's icon)
 ```
 
 `make` signs with the first code-signing identity in your keychain, or ad hoc if you have none; `make SIGN_ID=-` forces ad hoc.

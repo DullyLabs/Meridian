@@ -41,7 +41,7 @@ install: app
 
 icon:
 	rm -rf .build/AppIcon.iconset
-	swift Icon/make-icon.swift .build/AppIcon.iconset
+	swift Icon/make-icon.swift Icon/ios-icon.png .build/AppIcon.iconset
 	iconutil -c icns .build/AppIcon.iconset -o Icon/AppIcon.icns
 
 clean:
