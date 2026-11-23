@@ -359,7 +359,7 @@ struct CityTimeTests {
 
     @Test func testNoSharedWorkHours() {
         func none(_ zones: [String], day: String) -> Bool {
-            TimeGrid.noSharedWorkHours(zones.map { City(name: City.cityName($0), zone: $0) }, columns: columns(home: zones[0], day: day))
+            TimeGrid.noSharedWorkHours(zones.map { City(name: City.cityName($0), zone: $0) }, work: work(zones, day: day))
         }
         let wednesday = "2026-11-18T12:00:00Z"
         #expect(!none(["Asia/Tokyo"], day: wednesday))

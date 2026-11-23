@@ -54,8 +54,8 @@ enum TimeGrid {
     }
 
     /// Whether to say there are no shared working hours: only with 2+ offices, since one city has nothing to share.
-    static func noSharedWorkHours(_ cities: [City], columns: [Date]) -> Bool {
-        offices(cities).count > 1 && sharedWorkHours(cities, columns: columns).isEmpty
+    static func noSharedWorkHours(_ cities: [City], work: [ClosedRange<Int>]) -> Bool {
+        offices(cities).count > 1 && work.isEmpty
     }
 
     private static func offices(_ cities: [City]) -> [City] { cities.filter { $0.zone != "UTC" } }

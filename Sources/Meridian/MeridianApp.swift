@@ -71,7 +71,7 @@ struct TimeGridView: View {
             let range = (drag.map { min($0.from, $0.to)...max($0.from, $0.to) } ?? (hovered ?? now).map { $0...$0 })?
                 .clamped(to: 0...(columns.count - 1))
             VStack(spacing: 10) {
-                toolbar(cities: cities, columns: columns, noWork: TimeGrid.noSharedWorkHours(cities, columns: columns))
+                toolbar(cities: cities, columns: columns, noWork: TimeGrid.noSharedWorkHours(cities, work: work))
                 HStack(alignment: .bottom, spacing: 12) {
                     VStack(spacing: 4) {
                         ForEach(Array(cities.enumerated()), id: \.element.id) { index, city in
@@ -171,8 +171,8 @@ struct TimeGridView: View {
                     let label = "Working hours for everyone: \(clock(columns[hours.lowerBound], cities[0].timeZone)) - \(clock(columns[hours.upperBound] + 3600, cities[0].timeZone))"
                     Capsule().fill(.green)
                         .frame(width: width * CGFloat(hours.count) - HourCellView.gap, height: 6)
-                        .offset(x: width * CGFloat(hours.lowerBound), y: proxy.size.height + 6)
                         .help(label).accessibilityLabel(label)
+                        .offset(x: width * CGFloat(hours.lowerBound), y: proxy.size.height + 6)
                 }
             }
         }
