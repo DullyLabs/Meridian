@@ -350,6 +350,11 @@ struct MenuBarTests {
         #expect(MenuBarLabel.title([City.local, cities[2]], date: date, twelveHour: true) == "NY 9:41\u{202F}AM")
     }
 
+    @Test func testWakesAtTheNextMinute() {
+        #expect(MenuBarLabel.secondsToNextMinute(date.addingTimeInterval(45)) == 15)
+        #expect(MenuBarLabel.secondsToNextMinute(date) == 60)
+    }
+
     @Test func testOneCityShowsTheGlobe() {
         #expect(MenuBarLabel.title([.local], date: date, twelveHour: false) == nil)
     }

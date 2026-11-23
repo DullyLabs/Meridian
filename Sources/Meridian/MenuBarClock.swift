@@ -15,10 +15,17 @@ struct MenuBarLabel: View {
                 Image(systemName: "globe")
             }
         }
-        // A TimelineView here redraws the status item endlessly and hangs the app at launch.
-        .onReceive(Timer.publish(every: 1, on: .main, in: .common).autoconnect()) { date in
-            if Self.minute(date) != minute { minute = Self.minute(date) }
+        // A TimelineView here redraws the status item endlessly and hangs the app at launch, so sleep to each minute instead.
+        .task {
+            while !Task.isCancelled {
+                try? await Task.sleep(for: .seconds(Self.secondsToNextMinute(.now)))
+                minute = Self.minute(.now)
+            }
         }
+    }
+
+    nonisolated static func secondsToNextMinute(_ date: Date) -> TimeInterval {
+        Calendar.current.dateInterval(of: .minute, for: date)!.end.timeIntervalSince(date)
     }
 
     private static func minute(_ date: Date) -> Date { Calendar.current.dateInterval(of: .minute, for: date)!.start }

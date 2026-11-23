@@ -51,6 +51,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     func applicationShouldTerminateAfterLastWindowClosed(_ sender: NSApplication) -> Bool { false }
+
+    /// Opening the app again (Finder, Spotlight, Dock) shows its window, even with no Dock icon or menu bar item to click.
+    func applicationShouldHandleReopen(_ sender: NSApplication, hasVisibleWindows flag: Bool) -> Bool {
+        DesktopWidget.shared.openMeridian()
+        return false
+    }
 }
 
 struct TimeGridView: View {
