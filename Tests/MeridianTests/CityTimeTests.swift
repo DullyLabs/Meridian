@@ -370,3 +370,24 @@ struct CityTimeTests {
         #expect(TimeGrid.sharedWorkHours([City(name: "London", zone: "Europe/London")], columns: columns(home: "Europe/London", day: wednesday), workday: 9..<9) == [])
     }
 }
+
+struct MenuBarTests {
+    // 2026-11-18 14:41 UTC, 09:41 in New York
+    private let date = ISO8601DateFormatter().date(from: "2026-11-18T14:41:00Z")!
+
+    @Test func testShowsTheSecondCityShortTime() {
+        let cities = City.list(City.defaultIDs)
+        #expect(MenuBarLabel.title(cities, date: date, twelveHour: false) == "LON 14:41")
+        #expect(MenuBarLabel.title(Array(cities.dropFirst(2)), date: date, twelveHour: false) == "TOK 23:41")
+        #expect(MenuBarLabel.title([City.local, cities[2]], date: date, twelveHour: true) == "NY 9:41\u{202F}AM")
+    }
+
+    @Test func testWakesAtTheNextMinute() {
+        #expect(MenuBarLabel.secondsToNextMinute(date.addingTimeInterval(45)) == 15)
+        #expect(MenuBarLabel.secondsToNextMinute(date) == 60)
+    }
+
+    @Test func testOneCityShowsTheGlobe() {
+        #expect(MenuBarLabel.title([.local], date: date, twelveHour: false) == nil)
+    }
+}
