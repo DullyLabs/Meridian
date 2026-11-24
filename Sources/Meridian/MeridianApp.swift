@@ -85,7 +85,7 @@ struct TimeGridView: View {
             // Clamped, since a selection made on a longer day can outlast it (daylight saving days have 23 or 25 columns).
             let range = (drag.map { min($0.from, $0.to)...max($0.from, $0.to) } ?? (hovered ?? now).map { $0...$0 })?
                 .clamped(to: 0...(columns.count - 1))
-            VStack(spacing: 10) {
+            VStack(spacing: 18) {
                 toolbar(cities: cities, columns: columns, noWork: TimeGrid.noSharedWorkHours(cities, work: work))
                 HStack(alignment: .bottom, spacing: 12) {
                     VStack(spacing: 4) {
@@ -93,13 +93,15 @@ struct TimeGridView: View {
                             info(index: index, city: city, cities: cities, columns: columns, range: range)
                         }
                     }
-                    .frame(width: 400)
+                    .frame(width: 300)
                     timeline(cities: cities, columns: columns, now: position, range: range, work: work)
                 }
                 Spacer(minLength: 0)
             }
             .padding(16)
         }
+        .foregroundStyle(Palette.ink)
+        .background(Palette.paper)
         .onAppear {
             DesktopWidget.shared.openMainWindow = { openWindow(id: "main") }
             DesktopWidget.shared.updateDockIcon()
@@ -112,8 +114,8 @@ struct TimeGridView: View {
             Button { dayOffset -= 1 } label: { Image(systemName: "chevron.left") }
             Button { dayOffset += 1 } label: { Image(systemName: "chevron.right") }
             Text(columns[0].formatted(Date.FormatStyle(timeZone: cities.first?.timeZone ?? .current).weekday(.wide).day().month(.wide)))
-                .font(.headline)
-            if noWork { Text("No shared working hours").foregroundStyle(.secondary) }
+                .caps(13)
+            if noWork { Text("No shared working hours").caps(11).foregroundStyle(Palette.secondary) }
             Spacer()
             Picker("", selection: $twelveHour) { Text("am pm").tag(true); Text("24").tag(false) }
                 .pickerStyle(.segmented).labelsHidden().fixedSize()
@@ -132,19 +134,23 @@ struct TimeGridView: View {
             Group {
                 if index == 0 { Image(systemName: "house.fill") } else { Text(TimeGrid.offset(offset) ?? "0") }
             }
-            .frame(width: 56).foregroundStyle(.secondary).lineLimit(1)
-            VStack(alignment: .leading, spacing: 1) {
-                Text(city.displayName).font(.headline).lineLimit(1)
-                if city.zone != "UTC" { Text(TimeGrid.utcOffset(zone, at: columns[0])).font(.caption).foregroundStyle(.secondary) }
+            .caps(12).frame(width: 36).foregroundStyle(Palette.secondary)
+            VStack(alignment: .leading, spacing: 3) {
+                Text(city.displayName).caps(12)
+                if city.zone != "UTC" { Text(TimeGrid.utcOffset(zone, at: columns[0])).caps(10).foregroundStyle(Palette.secondary) }
             }
-            .frame(width: 130, alignment: .leading)
+            .frame(width: 110, alignment: .leading)
             if let range {
                 let start = columns[range.lowerBound], end = columns[range.upperBound] + 3600
-                VStack(alignment: .leading, spacing: 1) {
-                    Text("\(clock(start, zone)) - \(clock(end, zone))").font(.system(size: 15, weight: .semibold).monospacedDigit())
+                VStack(alignment: .leading, spacing: 2) {
+                    HStack(alignment: .firstTextBaseline, spacing: 4) {
+                        numerals(start, zone)
+                        Text("–").font(.system(size: 16, weight: .light))
+                        numerals(end, zone)
+                    }
                     let days = [start, end - 1].map { $0.formatted(Date.FormatStyle(timeZone: zone).weekday(.abbreviated).month(.abbreviated).day()) }
                     Text(days[0] == days[1] ? days[0] : days.joined(separator: " \u{2192} "))
-                        .font(.caption).foregroundStyle(.secondary)
+                        .caps(10).foregroundStyle(Palette.secondary)
                 }
                 .lineLimit(1).minimumScaleFactor(0.7)
             }
@@ -153,13 +159,19 @@ struct TimeGridView: View {
                 Button("Move Up") { move(index, by: -1, in: cities) }.disabled(index == 0)
                 Button("Move Down") { move(index, by: 1, in: cities) }.disabled(index == cities.count - 1)
                 Button("Remove", role: .destructive) { save(cities.filter { $0.id != city.id }) }.disabled(cities.count == 1)
-            } label: { Image(systemName: "ellipsis.circle") }
-            .menuStyle(.borderlessButton).fixedSize()
+            } label: { Image(systemName: "ellipsis") }
+            .menuStyle(.borderlessButton).menuIndicator(.hidden).fixedSize()
         }
         .frame(height: Self.rowHeight)
     }
 
     private func clock(_ date: Date, _ zone: TimeZone) -> String { TimeGrid.clock(date, zone, twelveHour: twelveHour) }
+
+    /// "9:00 AM" as heavy hours, light minutes and a small period.
+    private func numerals(_ date: Date, _ zone: TimeZone) -> some View {
+        let parts = clock(date, zone).split(maxSplits: 1, whereSeparator: \.isWhitespace).map(String.init)
+        return Numerals(time: parts[0], period: parts.count > 1 ? parts[1] : nil, size: 22)
+    }
 
     private func copy(_ cities: [City], start: Date, end: Date?) {
         NSPasteboard.general.clearContents()
@@ -195,9 +207,12 @@ struct TimeGridView: View {
             GeometryReader { proxy in
                 let width = proxy.size.width / CGFloat(columns.count)
                 if let range {
-                    let x = width * CGFloat(range.lowerBound)
-                    RoundedRectangle(cornerRadius: 4).strokeBorder(.primary, lineWidth: 2.5)
-                        .frame(width: width * CGFloat(range.count)).offset(x: x)
+                    // Cells sit on a pitch of their width plus the gap, so the box hugs them 2 points out.
+                    let pitch = (proxy.size.width + HourCellView.gap) / CGFloat(columns.count)
+                    RoundedRectangle(cornerRadius: 4).strokeBorder(Palette.ink, lineWidth: 2)
+                        .frame(width: pitch * CGFloat(range.count) - HourCellView.gap + 4)
+                        .padding(.vertical, -2)
+                        .offset(x: pitch * CGFloat(range.lowerBound) - 2)
                 }
                 Color.clear.contentShape(.rect)
                     .gesture(DragGesture(minimumDistance: 0)
@@ -228,9 +243,9 @@ struct TimeGridView: View {
             GeometryReader { proxy in
                 if let range {
                     let width = proxy.size.width / CGFloat(columns.count)
-                    Text("\(range.count) hour\(range.count == 1 ? "" : "s")").font(.caption2.bold()).foregroundStyle(Color(nsColor: .windowBackgroundColor))
-                        .padding(.horizontal, 6).padding(.vertical, 1).background(.primary, in: .capsule).fixedSize()
-                        .position(x: width * (CGFloat(range.lowerBound) + CGFloat(range.count) / 2), y: 0)
+                    Text("\(range.count) hour\(range.count == 1 ? "" : "s")").font(.caption2.bold()).foregroundStyle(Palette.paper)
+                        .padding(.horizontal, 6).padding(.vertical, 1).background(Palette.ink, in: .capsule).fixedSize()
+                        .position(x: width * (CGFloat(range.lowerBound) + CGFloat(range.count) / 2), y: -12)
                 }
             }
             .allowsHitTesting(false)

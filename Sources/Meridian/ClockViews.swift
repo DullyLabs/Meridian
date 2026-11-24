@@ -31,22 +31,18 @@ struct ClockRow: View {
     var body: some View {
         HStack(spacing: 8) {
             VStack(alignment: .leading, spacing: 1) {
-                Text(time.name).font(.system(size: 12, weight: .semibold)).lineLimit(1).minimumScaleFactor(0.6)
-                Text(time.dayLabel).font(.system(size: 10)).lineLimit(1).minimumScaleFactor(0.7).opacity(0.85)
+                Text(time.name).caps(11)
+                Text(time.dayLabel).caps(10).minimumScaleFactor(0.7).foregroundStyle(Palette.secondary)
             }
-            .frame(width: 84, alignment: .leading)
-            HStack(alignment: .firstTextBaseline, spacing: 2) {
-                Text(time.time).font(.system(size: 18, weight: .semibold, design: .rounded)).contentTransition(.numericText())
-                if let period = time.period { Text(period).font(.system(size: 9, weight: .bold, design: .rounded)).opacity(0.75) }
-            }
-            .monospacedDigit()
-            .lineLimit(1)
-            .frame(width: 70, alignment: .leading)
+            .frame(width: 96, alignment: .leading)
+            Numerals(time: time.time, period: time.period, size: 24)
+                .contentTransition(.numericText())
+                .frame(width: 70, alignment: .leading)
             HourStrip(cells: cells, now: now, twelveHour: twelveHour)
         }
         .frame(height: 44)
         .padding(.horizontal, 6)
-        .background(.fill.quaternary, in: .rect(cornerRadius: 8))
+        .foregroundStyle(Palette.ink)
     }
 }
 
@@ -84,14 +80,17 @@ struct HourCellView: View {
         let sky = Sky.color(cell.elevation)
         let ink = sky.isBright ? Color.black : .white
         VStack(spacing: 0) {
-            if large { Text(cell.newDay ? cell.weekday : " ").font(.system(size: 9, weight: .bold)) }
-            Text(cell.label(twelveHour: twelveHour)).font(.system(size: large ? 16 : 11, weight: .semibold).monospacedDigit())
-            if large || cell.minute != 0 { Text(cell.minute == 0 ? " " : String(format: "%02d", cell.minute)).font(.system(size: large ? 9 : 8)) }
+            if large { Text(cell.newDay ? cell.weekday : " ").font(.system(size: 9, weight: .heavy)).tracking(0.5) }
+            Text(cell.label(twelveHour: twelveHour)).font(.system(size: large ? 14 : 12, weight: .bold))
+            if large || cell.minute != 0 { Text(cell.minute == 0 ? " " : String(format: ":%02d", cell.minute)).font(.system(size: large ? 10 : 8, weight: .semibold)) }
         }
+        .fontWidth(.compressed)
+        .monospacedDigit()
         .foregroundStyle(ink)
         .minimumScaleFactor(0.5).lineLimit(1)
         .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .background(sky.color, in: .rect(cornerRadius: 3))
+        .background(sky.color, in: .rect(cornerRadius: 2))
+        .skyEdge(ink)
         .overlay(alignment: .leading) {
             // Drawn in the gap, outside the cell, so every cell keeps the same width.
             if let previous, cell.newDay || (cell.hour - previous.hour + 24) % 24 != 1 {

@@ -71,7 +71,7 @@ private struct DesktopWidgetView: View {
         }
         .frame(width: 720)
         .padding(10)
-        .background(.regularMaterial, in: .rect(cornerRadius: 16))
+        .background(Palette.paper, in: .rect(cornerRadius: 16))
         .overlay(WidgetMouseArea())
     }
 }
