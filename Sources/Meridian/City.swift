@@ -5,7 +5,12 @@ struct City: Identifiable, Hashable {
     static let local = City(name: "", zone: localID)
     static let defaults: [City] = [.local] + ["London", "New York", "Tokyo", "UTC"].compactMap { name in all.first { $0.name == name } }
 
+    /// The `cities` setting the window, widget and menu bar clock share: city IDs, one per line.
+    static let defaultIDs = defaults.map(\.id).joined(separator: "\n")
+
     private static let localID = "local"
+
+    static func list(_ ids: String) -> [City] { ids.split(separator: "\n").compactMap { City(id: String($0)) } }
 
     let name: String
     let zone: String
@@ -25,6 +30,12 @@ struct City: Identifiable, Hashable {
         let parts = id.split(separator: "|", maxSplits: 1).map(String.init)
         guard parts.count == 2, TimeZone(identifier: parts[1]) != nil else { return nil }
         self.init(name: parts[0], zone: parts[1])
+    }
+
+    /// "New York" -> "NY", "London" -> "LON", for the menu bar.
+    var shortName: String {
+        let words = displayName.split(separator: " ")
+        return (words.count > 1 ? String(words.compactMap(\.first)) : String(displayName.prefix(3))).uppercased()
     }
 
     /// Cities matching `query` (all of them when it's empty), without those already `added`.
