@@ -121,7 +121,7 @@ struct TimeGridView: View {
                 .pickerStyle(.segmented).labelsHidden().fixedSize()
             Button("Add City", systemImage: "plus") { adding = true }
                 .disabled(cities.count >= Self.limit)
-                .popover(isPresented: $adding) { CityPicker { save(cities + [$0]); adding = false } }
+                .popover(isPresented: $adding) { CityPicker(added: cities) { save(cities + [$0]); adding = false } }
         }
     }
 
@@ -261,13 +261,14 @@ struct TimeGridView: View {
 }
 
 private struct CityPicker: View {
+    let added: [City]
     let pick: (City) -> Void
     @State private var query = ""
 
     var body: some View {
         VStack(spacing: 8) {
             TextField("Search cities", text: $query).textFieldStyle(.roundedBorder)
-            List(City.search(query).prefix(50)) { city in
+            List(City.search(query, excluding: added).prefix(50)) { city in
                 Button(city.name) { pick(city) }.buttonStyle(.plain)
             }
         }

@@ -322,6 +322,21 @@ struct CityTimeTests {
         #expect(columns(home: "America/New_York", day: "2026-03-09T12:00:00Z", days: -1).count == 23)
     }
 
+    @Test func testDayLabelAcrossTheHomeZonesDaylightSavingChange() {
+        // 01:30 EST in New York, half an hour after its clocks went back; 23:30 the day before in Los Angeles.
+        let date = ISO8601DateFormatter().date(from: "2026-11-01T06:30:00Z")!
+        let time = CityTime(city: City(name: "Los Angeles", zone: "America/Los_Angeles"), date: date,
+                            localZone: TimeZone(identifier: "America/New_York")!, locale: us)
+        #expect(time.dayLabel == "Yesterday · \u{2212}2")
+    }
+
+    @Test func testSearchLeavesOutCitiesAlreadyAdded() {
+        let london = City(name: "London", zone: "Europe/London")
+        #expect(City.search("London").contains(london))
+        #expect(!City.search("London", excluding: [london]).contains(london))
+        #expect(!City.search("", excluding: [london]).contains(london))
+    }
+
     @Test func testCitiesRoundTripAndSearch() {
         #expect(City.search("san fran").map(\.zone) == ["America/Los_Angeles"])
         #expect(City.defaults.compactMap { City(id: $0.id) } == City.defaults)
