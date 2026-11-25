@@ -269,7 +269,14 @@ private struct CityPicker: View {
         VStack(spacing: 8) {
             TextField("Search cities", text: $query).textFieldStyle(.roundedBorder)
             List(City.search(query, excluding: added).prefix(50)) { city in
-                Button(city.name) { pick(city) }.buttonStyle(.plain)
+                Button { pick(city) } label: {
+                    if city.isLocal {
+                        Label { Text(City.localTitle) + Text("  \(city.displayName)").foregroundStyle(.secondary) } icon: { Image(systemName: "location.fill") }
+                    } else {
+                        Text(city.name)
+                    }
+                }
+                .buttonStyle(.plain)
             }
         }
         .padding(12).frame(width: 260, height: 320)

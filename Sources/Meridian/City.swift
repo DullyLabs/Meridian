@@ -38,9 +38,13 @@ struct City: Identifiable, Hashable {
         return (words.count > 1 ? String(words.compactMap(\.first)) : String(displayName.prefix(3))).uppercased()
     }
 
-    /// Cities matching `query` (all of them when it's empty), without those already `added`.
+    static let localTitle = "My Location"
+
+    /// Cities matching `query` (all of them when it's empty), without those already `added`; My Location first.
     static func search(_ query: String, excluding added: [City] = []) -> [City] {
-        all.filter { !added.contains($0) && (query.isEmpty || $0.name.localizedStandardContains(query) || $0.zone.localizedStandardContains(query)) }
+        let matches = { (texts: [String]) in query.isEmpty || texts.contains { $0.localizedStandardContains(query) } }
+        let mine = !added.contains(.local) && matches([localTitle, City.local.displayName]) ? [City.local] : []
+        return mine + all.filter { !added.contains($0) && matches([$0.name, $0.zone]) }
     }
 
     /// "America/Argentina/Buenos_Aires" -> "Buenos Aires", with legacy zone names given their current spelling.
