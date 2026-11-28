@@ -337,6 +337,14 @@ struct CityTimeTests {
         #expect(!City.search("", excluding: [london]).contains(london))
     }
 
+    @Test func testSearchOffersMyLocationUntilAdded() {
+        #expect(City.search("").first == .local)
+        #expect(City.search("my loc").first == .local)
+        #expect(City.search(City.local.displayName).first == .local)
+        #expect(!City.search("", excluding: [.local]).contains(.local))
+        #expect(!City.search("zzz").contains(.local))
+    }
+
     @Test func testCitiesRoundTripAndSearch() {
         #expect(City.search("san fran").map(\.zone) == ["America/Los_Angeles"])
         #expect(City.defaults.compactMap { City(id: $0.id) } == City.defaults)
